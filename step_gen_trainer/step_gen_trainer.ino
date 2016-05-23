@@ -1,4 +1,6 @@
 
+#include <Wire.h>
+#include "Adafruit_MCP23008.h"
 
 #include "digitalWriteFast.h"
 
@@ -39,96 +41,96 @@ uint8_t step_patterns[32][32] = {
 
 
 
+Adafruit_MCP23008 mcp;
+
 
 uint8_t dir;
 uint8_t stp;
 uint8_t stp_idx;
-int8_t v;
 
-int stp_idx_values[4];
-uint8_t dir_values[4];
+int8_t stick_val;
+int analog_val;
 
-int8_t analog_pins[2] = {0,1}
-int8_t step_pins[3] = {2,4,6};
-uint8_t dir_pins[3] = {3,5,7};
+int stp_idx_values[8];
+uint8_t dir_values[8];
+uint8_t limit_values[8];
+
+int8_t  analog_pins[6] = {0,1,2};
+int     analog_zero[6] = {0,1,2};
+int8_t  step_pins[6] =   {2,4,6};
+uint8_t dir_pins[6] =    {3,5,7};
+int8_t  limit_pins[6] =  {0,1,2}; // Limit switch inputs on the MCP23008
+int8_t  limittrig_pins[6] =  {3,4,5}; // Limit switch trigger lights on the MCP23008
 
 #define STEP_PIN(stick) step_pins[stick]
 #define DIR_PIN(stick) dir_pins[stick]
 #define ANALOG_PIN(stick) analog_pins[stick]
 
-#define N_STICKS 2
+#define N_STICKS 3
+
 
 void setup()
 {
-  /*Serial.begin(9600);*/
-  
-  joy.init();
+  //Serial.begin(9600);
 
   for ( int stick = 0; stick < N_STICKS ; stick ++ ){
-    pinModeFast(step_pins[stick], OUTPUT);
-    pinModeFast(step_pins[stick], OUTPUT);
+    pinModeFast(STEP_PIN(stick), OUTPUT);
+    pinModeFast(DIR_PIN(stick), OUTPUT);
   }
 
-                                      
+  for ( int stick = 0; stick < N_STICKS ; stick ++ ){
+    // Find the zero point for each of the sticks. This assumes that they are
+    // spring-loaded to return to the middle and are not being moved during startup.
+    
+    analog_zero[stick] = analogRead( ANALOG_PIN(stick) ); 
+  }    
+
+  mcp.begin();      // use default address 0
+
+  for (int i = 0; i < N_STICKS; i++){
+    mcp.pinMode(limit_pins[i], INPUT);
+    mcp.pullUp(limit_pins[i], HIGH);  // turn on a 100K pullup internally
+    
+    mcp.pinMode(limittrig_pins[i], OUTPUT);
+  
+  }
+  
 }
 
-void debug_print(int n, int stick, int v, int dir, int stp_idx, int stp)
-{
-      Serial.print(n, DEC);
-      Serial.print("\t");
-      
-      Serial.print(STEP_PIN(stick), DEC);
-      Serial.print("\t");
 
-      Serial.print(v, DEC);
-      Serial.print("\t");
-
-      Serial.print(dir, DEC);
-      Serial.print("\t");
-
-      Serial.print(stp_idx, DEC);
-      Serial.print("\t");
-
-      Serial.print(stp, DEC);
-      Serial.print("\t");
-      
-      Serial.println("");
-}
 
 
 void loop()
 {
-
-  joy.run();
 
   /* Read the values from the joysticks and compute the direction and 
    * which step pattern to use */
    
   for ( int stick = 0; stick < N_STICKS ; stick ++ ){
     
-    val = analogRead( ANALOG_PIN(stick) ); 
-    val = map(val, 0, 1023, -127, 128);
+    analog_val = analogRead( ANALOG_PIN(stick) ); 
     
-    uint8_t dir;
-    uint8_t stp;
-    
-    if (v > 0) {
+    // Map the analog values 0->1023 to -32 to 32
+    stick_val = map(analog_val-analog_zero[stick], -512, 512,-31,31);
+   
+    if (stick_val > 0) {
       dir = HIGH;
-      stp_idx = (v>>2);
+      stp_idx = stick_val;
       
-    } else if ( v < 0 ) {
+    } else if ( stick_val < 0 ) {
       dir = LOW;
-      stp_idx = ((-1*(v+1))>>2);
+      stp_idx = -stick_val;
       
     } else  {
       /* Force 0 to output nothing. */
       dir = LOW;
-      stp = LOW;
+      stp_idx = 0;
     }
 
     stp_idx_values[stick] = stp_idx;
     dir_values[stick] = dir;
     
+    limit_values[stick] = mcp.digitalRead(limit_pins[stick]);
   }
 
 
@@ -143,16 +145,18 @@ void loop()
       stp = step_patterns[stp_idx_values[stick]][n];
       digitalWriteFast2(STEP_PIN(stick),  stp ); 
 
+      mcp.digitalWrite(limittrig_pins[stick], limit_values[stick]);
+
     }
 
-    delayMicroseconds(10);
+    delayMicroseconds(1200);
 
     /* Take the step low, since the motor driver needs a transition to acknowledge a pulse. */
     for ( int stick = 0; stick < N_STICKS ; stick ++ ){
       digitalWriteFast2(STEP_PIN(stick), LOW );
     }
 
-    delayMicroseconds(10);
+    delayMicroseconds(1200);
     
 
   }
