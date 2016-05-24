@@ -161,7 +161,7 @@ void readAnalog() {
 //      Serial.println(map(aft_stick_val[stick]>>6, 0, 4000>>6, 4000>>6, 0));
 //      Serial.println(dst_vel[stick]);
     }
-    stick_tus[stick] = map(aft_stick_val[stick]>>6, 0, 4000>>6, 4000>>6, 0);
+    stick_tus[stick] = map(aft_stick_val[stick]>>6, 0, 62, 62, 0);
     stick_dir[stick] = dir;
   }
 }
