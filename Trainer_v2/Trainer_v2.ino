@@ -31,24 +31,28 @@ uint8_t limit_values[8];
 uint8_t prev_dir[6];
 uint8_t stop_state[6] = {0,0,0};
 
+uint8_t sel_state;
+
 #define STEP_PIN(stick) stp_pins[stick]
 #define DIR_PIN(stick) dir_pins[stick]
 #define ANALOG_PIN(stick) analog_pins[stick]
+#define SEL_PIN A3
 
 #define N_STICKS 3
 #define P_STICK_TOL 50
 #define N_STICK_TOL -50
 
 void setup() {
-  //Serial.begin(115200);
+  Serial.begin(115200);
   
+  pinMode(SEL_PIN, INPUT_PULLUP);
   for (int stick = 0; stick < N_STICKS; stick ++) {
     pinModeFast(STEP_PIN(stick), OUTPUT);
     pinModeFast(DIR_PIN(stick), OUTPUT);
   }
   
   for ( int stick = 0; stick < N_STICKS ; stick ++ ){
-    analog_zero[stick] = analogRead( ANALOG_PIN(stick)); 
+    analog_zero[stick] = analogRead(ANALOG_PIN(stick)); 
   }
   mcp.begin();      // use default address 0
 
@@ -99,9 +103,13 @@ void loop() {
 
 void readAnalog() {
   for (int stick = 0; stick < N_STICKS; stick ++) {
+    
     limit_values[stick] = mcp.digitalRead(limit_pins[stick]);
+    sel_state = digitalRead(SEL_PIN);
     analog_val = analogRead(ANALOG_PIN(stick));
     stick_val = map(analog_val-analog_zero[stick], -700, 700, -500, 500);
+    
+    Serial.println(sel_state);
     
     if (limit_values[stick] == HIGH && stop_state[stick] == 0) {
       if (stick_val > P_STICK_TOL) {
