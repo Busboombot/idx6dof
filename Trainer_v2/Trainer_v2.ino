@@ -29,7 +29,7 @@ int8_t  limit_pins[6] =  {0,1,2}; // Limit switch inputs on the MCP23008
 int8_t  limittrig_pins[6] =  {3,4,5}; // Limit switch trigger lights on the MCP23008
 uint8_t limit_values[8];
 uint8_t prev_dir[6];
-uint8_t stop_state[6] = {0,0,0}
+uint8_t stop_state[6] = {0,0,0};
 
 #define STEP_PIN(stick) stp_pins[stick]
 #define DIR_PIN(stick) dir_pins[stick]
@@ -40,7 +40,7 @@ uint8_t stop_state[6] = {0,0,0}
 #define N_STICK_TOL -50
 
 void setup() {
-  //Serial.begin(9600);
+  //Serial.begin(115200);
   
   for (int stick = 0; stick < N_STICKS; stick ++) {
     pinModeFast(STEP_PIN(stick), OUTPUT);
@@ -121,17 +121,20 @@ void readAnalog() {
     }
     
     if (limit_values[stick] == LOW && stop_state[stick] == 0) {
+      aft_stick_val = 500;
       if (prev_dir[stick] == LOW) {
         dir = HIGH;
       }
       else {
-        dir == LOW;
+        dir = LOW;
       }
-      stop_state[stick] = 1;
+      if (limit_values[stick] == HIGH) {
+        stop_state[stick] = 2;
+      }
     }
     
     
-    if (stop_state[stick] == 1 && limit_values[stick] == HIGH) {
+    if (stop_state[stick] == 2 && limit_values[stick] == HIGH) {
       aft_stick_val = 0;
       if (prev_dir[stick] == LOW && stick_val > P_STICK_TOL) {
         stop_state[stick] = 0;
@@ -140,7 +143,7 @@ void readAnalog() {
         stop_state[stick] = 0;
       }
     }
-    
+    //Serial.println(stop_state[stick]);
     stick_dir[stick] = dir;
     if (aft_stick_val == 0) {
       stick_tus[stick] = 0;
