@@ -43,10 +43,12 @@ uint8_t step_patterns[32][32] = {
 
 Adafruit_MCP23008 mcp;
 
-
 uint8_t dir;
 uint8_t stp;
 uint8_t stp_idx;
+
+uint8_t stopStep[6] = {0,0,0};
+uint8_t pstick_dir[6];
 
 int8_t stick_val;
 int analog_val;
@@ -56,7 +58,7 @@ uint8_t dir_values[8];
 uint8_t limit_values[8];
 
 int8_t  analog_pins[6] = {0,1,2};
-int     analog_zero[6] = {0,1,2};
+int     analog_zero[6] = {0,0,0};
 int8_t  step_pins[6] =   {2,4,6};
 uint8_t dir_pins[6] =    {3,5,7};
 int8_t  limit_pins[6] =  {0,1,2}; // Limit switch inputs on the MCP23008
@@ -92,7 +94,6 @@ void setup()
     mcp.pullUp(limit_pins[i], HIGH);  // turn on a 100K pullup internally
     
     mcp.pinMode(limittrig_pins[i], OUTPUT);
-  
   }
   
 }
@@ -107,30 +108,61 @@ void loop()
    * which step pattern to use */
    
   for ( int stick = 0; stick < N_STICKS ; stick ++ ){
-    
-    analog_val = analogRead( ANALOG_PIN(stick) ); 
+    limit_values[stick] = mcp.digitalRead(limit_pins[stick]); // Read first to interupt pots
+    analog_val = analogRead( ANALOG_PIN(stick));
     
     // Map the analog values 0->1023 to -32 to 32
     stick_val = map(analog_val-analog_zero[stick], -512, 512,-31,31);
-   
-    if (stick_val > 0) {
-      dir = HIGH;
-      stp_idx = stick_val;
-      
-    } else if ( stick_val < 0 ) {
-      dir = LOW;
-      stp_idx = -stick_val;
-      
-    } else  {
-      /* Force 0 to output nothing. */
+    
+    
+    if (stopStep[stick] == 0) {
+      if (stick_val > 0) {
+        dir = HIGH;
+        stp_idx = stick_val;
+        
+      } else if (stick_val < 0) {
+        dir = LOW;
+        stp_idx = -stick_val;
+        
+      } else  {
+        /* Force 0 to output nothing. */
+        dir = LOW;
+        stp_idx = 0;
+      }
+    }
+    if (limit_values[stick] == LOW && stopStep[stick] < 2) { // Write after initial model to overwrite values
+      stopStep[stick] = 1;
+      if (stick_val > 0) {
+        dir = LOW;
+        stp_idx = 1;
+      }
+      else if (stick_val < 0) {
+        dir = HIGH;
+        stp_idx = 1;
+      }
+      else {
+        dir = LOW;
+        stp_idx = 0;
+      }
+      pstick_dir[stick] = dir;
+    }
+    if (stopStep[stick] == 1 && limit_values[stick] == HIGH) {
+      stopStep[stick] = 2;
       dir = LOW;
       stp_idx = 0;
+    }
+    if (stopStep[stick] == 2) {
+      if (pstick_dir[stick] == HIGH && stick_val > 0) {
+        stopStep[stick] = 0;
+      }
+      if (pstick_dir[stick] == LOW && stick_val < 0) {
+        stopStep[stick] = 0;
+      }
     }
 
     stp_idx_values[stick] = stp_idx;
     dir_values[stick] = dir;
     
-    limit_values[stick] = mcp.digitalRead(limit_pins[stick]);
   }
 
 
@@ -149,14 +181,14 @@ void loop()
 
     }
 
-    delayMicroseconds(1200);
+    delayMicroseconds(16);
 
     /* Take the step low, since the motor driver needs a transition to acknowledge a pulse. */
     for ( int stick = 0; stick < N_STICKS ; stick ++ ){
-      digitalWriteFast2(STEP_PIN(stick), LOW );
+      digitalWriteFast2(STEP_PIN(stick), LOW);
     }
 
-    delayMicroseconds(1200);
+    delayMicroseconds(16);
     
 
   }
