@@ -142,9 +142,9 @@ void IDXPendant::print_serial() {
     Serial.print(this->last_switch_set_count, DEC);
     Serial.print(" ");
 
-    Serial.print(this->swbits_ups, DEC);
+    Serial.print(this->swbits_ups, BIN);
     Serial.print(" ");
-    Serial.print(this->swbits_downs, DEC);
+    Serial.print(this->swbits_downs, BIN);
 
     Serial.print('\n');
 }
