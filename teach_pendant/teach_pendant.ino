@@ -7,7 +7,6 @@
 
 IDXPendant pendant;
 
-// the setup function runs once when you press reset or power the board
 void setup() {
 
   pendant.setup();
@@ -15,11 +14,27 @@ void setup() {
 }
 
 
-// the loop function runs over and over again forever
 void loop() {
-
+  int sis = 0;
+  
   if(pendant.run_once()) {
     pendant.print_serial();
+
+    if (pendant.sw_pos(IDX_SW_SPEED) == IDX_SW_POS_TOP){
+      Serial.println("Fast");
+    } else if (pendant.sw_pos(IDX_SW_SPEED) == IDX_SW_POS_MID){
+      Serial.println("Medium");
+    } else if (pendant.sw_pos(IDX_SW_SPEED) == IDX_SW_POS_BOTTOM){
+      Serial.println("Slow");
+    }
+  
+    if (pendant.sw_pos(IDX_SW_AXIS0) == IDX_SW_POS_TOP){
+      Serial.println("Increase");
+    } else if (pendant.sw_pos(IDX_SW_AXIS0) == IDX_SW_POS_MID){
+      Serial.println("No Change");
+    } else if (pendant.sw_pos(IDX_SW_AXIS0) == IDX_SW_POS_BOTTOM){
+      Serial.println("Decrease");
+    }
   }
   
 }

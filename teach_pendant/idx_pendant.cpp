@@ -4,6 +4,8 @@
 
 #include "Arduino.h"
 #include "idx_pendant.h"
+#include "bithacks.h"
+
 #include <stdio.h>
 #include <stdint.h>
 
@@ -12,10 +14,13 @@
 
 #define NUM_SWITCHES 18 // 17+1 b/c array is 1-indexed
 
+
+
 // TODO: These should probably be configurable, but since it's unlikely 
 // I'll rebuild the hardware ... 
 const int  IDXPendant::outpins[] = { 23, 25, 27, 29, 31, 33, 34, 35 };
 const int  IDXPendant::inpins[] =  { 22, 24, 26, 28, 30, 32 };
+const int  IDXPendant::num_switches = NUM_SWITCHES;
 
 IDXPendant::IDXPendant() {
   
@@ -44,8 +49,13 @@ void IDXPendant::setup() {
     pinMode(this->inpins[i], INPUT);
   }
 
-
 }
+
+#define SW_IS_UP(n) ( B_IS_SET(this->swbits_ups, n) )
+#define SW_IS_DOWN(n)  ( B_IS_SET(this->swbits_downs, n) )
+
+#define SET_SW_UP(n) ( B_SET(this->swbits_ups, n) )
+#define SET_SW_DOWN(n)  ( B_SET(this->swbits_downs, n) )
 
 // the loop function runs over and over again forever
 bool IDXPendant::run_once() {
@@ -56,50 +66,55 @@ bool IDXPendant::run_once() {
   
   for (int i = 0 ; i < NUM_OUT_PINS; i++){
     digitalWrite(this->outpins[i], HIGH);  
+    delay(1); // Delay needed to get out ping to stabilize
     for (int j = 0 ; j < NUM_IN_PINS; j++){
         if (digitalRead(this->inpins[j])){
-          delay(1);
+          
           switch_set_count++;
-
+          //Serial.print(this->outpins[i],DEC);
+          //Serial.print("->");
+          //Serial.println(this->inpins[j],DEC);
+          
           switch (i+j*8) {
-            case 4:  this->swbits_ups |= ( 1 << 2 ); break;
-            case 12: this->swbits_downs |= ( 1 << 2 ); break;
-            case 16: this->swbits_ups |= ( 1 << 17 ); break;
-            case 17: this->swbits_ups |= ( 1 << 16 ); break;
-            case 18: this->swbits_ups |= ( 1 << 15 ); break;
-            case 19: this->swbits_ups |= ( 1 << 14 ); break;
-            case 20: this->swbits_ups |= ( 1 << 13 ); break;
-            case 21: this->swbits_ups |= ( 1 << 12 ); break;
-            case 22: this->swbits_ups |= ( 1 << 10 ); break;
-            case 23: this->swbits_ups |= ( 1 << 11 ); break;
-            case 24: this->swbits_downs |= ( 1 << 17 ); break;
-            case 25: this->swbits_downs |= ( 1 << 16 ); break;
-            case 26: this->swbits_downs |= ( 1 << 15 ); break;
-            case 27: this->swbits_downs |= ( 1 << 14 ); break;
-            case 28: this->swbits_downs |= ( 1 << 13 ); break;
-            case 29: this->swbits_downs |= ( 1 << 12 ); break;
-            case 30: this->swbits_downs |= ( 1 << 10 ); break;
-            case 31: this->swbits_downs |= ( 1 << 11 ); break;
-            case 32: this->swbits_ups |= ( 1 << 7 ); break;
-            case 33: this->swbits_ups |= ( 1 << 6 ); break;
-            case 34: this->swbits_ups |= ( 1 << 5 ); break;
-            case 35: this->swbits_ups |= ( 1 << 4 ); break;
-            case 36: this->swbits_ups |= ( 1 << 3 ); break;
-            case 37: this->swbits_ups |= ( 1 << 8 ); break;
-            case 38: this->swbits_ups |= ( 1 << 1 ); break;
-            case 39: this->swbits_ups |= ( 1 << 9 ); break;
-            case 40: this->swbits_downs |= ( 1 << 7 ); break;
-            case 41: this->swbits_downs |= ( 1 << 6 ); break;
-            case 42: this->swbits_downs |= ( 1 << 5 ); break;
-            case 43: this->swbits_downs |= ( 1 << 4 ); break;
-            case 44: this->swbits_downs |= ( 1 << 3 ); break;
-            case 45: this->swbits_downs |= ( 1 << 8 ); break;
-            case 46: this->swbits_downs |= ( 1 << 1 ); break;
-            case 47: this->swbits_downs |= ( 1 << 9 ); break;
+            case 4: SET_SW_UP(2); break; 
+            case 12: SET_SW_DOWN(2); break; 
+            case 16: SET_SW_UP(17); break; 
+            case 17: SET_SW_UP(16); break; 
+            case 18: SET_SW_UP(15); break; 
+            case 19: SET_SW_UP(14); break; 
+            case 20: SET_SW_UP(13); break; 
+            case 21: SET_SW_UP(12); break; 
+            case 22: SET_SW_UP(10); break; 
+            case 23: SET_SW_UP(11); break; 
+            case 24: SET_SW_DOWN(17); break; 
+            case 25: SET_SW_DOWN(16); break; 
+            case 26: SET_SW_DOWN(15); break; 
+            case 27: SET_SW_DOWN(14); break; 
+            case 28: SET_SW_DOWN(13); break; 
+            case 29: SET_SW_DOWN(12); break; 
+            case 30: SET_SW_DOWN(10); break; 
+            case 31: SET_SW_DOWN(11); break; 
+            case 32: SET_SW_UP(7); break; 
+            case 33: SET_SW_UP(6); break; 
+            case 34: SET_SW_UP(5); break; 
+            case 35: SET_SW_UP(4); break; 
+            case 36: SET_SW_UP(3); break; 
+            case 37: SET_SW_UP(8); break; 
+            case 38: SET_SW_UP(1); break; 
+            case 39: SET_SW_UP(9); break; 
+            case 40: SET_SW_DOWN(7); break; 
+            case 41: SET_SW_DOWN(6); break; 
+            case 42: SET_SW_DOWN(5); break; 
+            case 43: SET_SW_DOWN(4); break; 
+            case 44: SET_SW_DOWN(3); break; 
+            case 45: SET_SW_DOWN(8); break; 
+            case 46: SET_SW_DOWN(1); break; 
+            case 47: SET_SW_DOWN(9); break; 
           }
         }
     }
-    digitalWrite(this->outpins[i], LOW);    
+    digitalWrite(this->outpins[i], LOW);  
+    delay(1);  // Delay needed to get out ping to stabilize
   }
 
   int ret_val = (this->last_swbits_ups != swbits_ups || this->last_swbits_downs != swbits_downs);
@@ -132,6 +147,15 @@ void IDXPendant::print_serial() {
     Serial.print(this->swbits_downs, DEC);
 
     Serial.print('\n');
+}
+
+// Map the values fom the bit operation to 
+static int sw_pos_map[] = { IDX_SW_POS_MID, IDX_SW_POS_TOP, IDX_SW_POS_BOTTOM, 0 };
+
+int IDXPendant::sw_pos(int switch_n){
+
+  return sw_pos_map[SW_IS_UP(switch_n) | (SW_IS_DOWN(switch_n)<<1)];
+  
 }
 
 
