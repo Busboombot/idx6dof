@@ -26,9 +26,9 @@
 #define IDX_SW_STEP 16
 #define IDX_SW_AXIS 17
 
-#define IDX_SW_POS_TOP 0
+#define IDX_SW_POS_TOP 2
 #define IDX_SW_POS_MID 1
-#define IDX_SW_POS_BOTTOM 2
+#define IDX_SW_POS_BOTTOM 0
 
 class IDXPendant {
 
