@@ -10,12 +10,16 @@ IDXPendant pendant;
 int s_vel[6];
 int dst_s_vel[6];
 
+uint8_t accel_clk = 0;
+
 #define H_DEST_VEL 200
 #define M_DEST_VEL 100
 #define L_DEST_VEL 50
 
 #define N_STICKS 6
-#define ACCEL 3
+#define ACCEL 1 // Inversly Porportional
+
+#define S_SNAP_TOL 5
 
 void setup() {
 
@@ -24,7 +28,9 @@ void setup() {
 }
 
 
-void loop() {  
+void loop() {
+  get_dest_vel();
+  
   /*
   if(pendant.run_once()) {
     Serial.print("Bits Up: ");
@@ -39,7 +45,17 @@ void loop() {
   }
   Serial.println("");
   */
+  if (accel_clk == 0) {
+    accel();
+  }
   
+  accel_clk += 1;
+  
+  if (accel_clk >= ACCEL) {
+    accel_clk = 0;
+  }
+  
+  print_vel();
 }
 
 
@@ -73,4 +89,25 @@ void get_dest_vel() { // Reads button values and sets destination stepper veloci
       dst_s_vel[stick] = 0;
     }
   }
+}
+
+void accel() {
+  for (int stick = 0; stick < N_STICKS; stick ++) {
+    if (s_vel[stick] < dst_s_vel[stick]) {
+      s_vel[stick] += 1;
+    }
+    if (s_vel[stick] > dst_s_vel[stick]) {
+      s_vel[stick] -= 1;
+    }
+    if (s_vel[stick] < (dst_s_vel[stick] + S_SNAP_TOL) && s_vel[stick] > (dst_s_vel[stick] - S_SNAP_TOL)) {
+      s_vel[stick] = dst_s_vel[stick];
+    }
+  }
+}
+
+void print_vel() {
+  for (int stick = 0; stick < N_STICKS; stick ++) {
+    Serial.println(s_vel[stick]);
+  }
+  Serial.println("----------");
 }
