@@ -149,6 +149,15 @@ void IDXPendant::print_serial() {
     Serial.print('\n');
 }
 
+int IDXPendant::return_up() {
+    return this->swbits_ups;
+}
+
+int IDXPendant::return_down() {
+    return this->swbits_downs;
+}
+
+
 // Map the values fom the bit operation to 
 static int sw_pos_map[] = { IDX_SW_POS_MID, IDX_SW_POS_TOP, IDX_SW_POS_BOTTOM, 0 };
 
