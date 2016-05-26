@@ -2,7 +2,7 @@
 #include "pins_arduino.h"
 
 
-#define fastWrite(pin) ( digitalPinToPort(pin)->PIO_SODR |= digitalPinToBitMask(pin) ) 
+#define fastSet(pin) ( digitalPinToPort(pin)->PIO_SODR |= digitalPinToBitMask(pin) ) 
 #define fastClear(pin) ( digitalPinToPort(pin)->PIO_CODR |= digitalPinToBitMask(pin) ) 
 
 void setup() {
@@ -11,8 +11,8 @@ void setup() {
 
 void loop() {
 
-  fastWrite(13);
+  fastSet(13);
   fastClear(13);
-  fastWrite(13);
+  fastSet(13);
   fastClear(13);
 }
