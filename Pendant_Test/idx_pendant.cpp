@@ -71,6 +71,9 @@ bool IDXPendant::run_once() {
         if (digitalRead(this->inpins[j])){
           
           switch_set_count++;
+          //Serial.print(this->outpins[i],DEC);
+          //Serial.print("->");
+          //Serial.println(this->inpins[j],DEC);
           
           switch (i+j*8) {
             case 4: SET_SW_UP(2); break; 
@@ -145,6 +148,15 @@ void IDXPendant::print_serial() {
 
     Serial.print('\n');
 }
+
+int IDXPendant::return_up() {
+    return this->swbits_ups;
+}
+
+int IDXPendant::return_down() {
+    return this->swbits_downs;
+}
+
 
 // Map the values fom the bit operation to 
 static int sw_pos_map[] = { IDX_SW_POS_MID, IDX_SW_POS_TOP, IDX_SW_POS_BOTTOM, 0 };

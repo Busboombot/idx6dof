@@ -24,7 +24,6 @@ uint8_t analog_pins[6] = {0,1,2};
 uint8_t stick_dir[6];
 uint8_t stick_tus[6] = {0,0,0};
 uint8_t stick_clk[6];
-
 uint8_t stick_stp[6];
 
 int analog_zero[6] = {0,0,0};
