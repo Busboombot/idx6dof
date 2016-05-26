@@ -1,7 +1,14 @@
+#include <Wire.h>
+#include <Adafruit_MCP23008.h>
 #include "digitalWriteFast.h"
 #include "idx_pendant.h"
 
 IDXPendant pendant;
+
+Adafruit_MCP23008 mcp;
+uint8_t  limit_pins[6] =  {2,1,0}; // Limit switch inputs on the MCP23008
+uint8_t limit_values[8];
+uint8_t limit_state[8];
 
 int s_vel[6];
 int dst_s_vel[6];
@@ -20,8 +27,8 @@ uint8_t stick_stp[6];
 #define N_STICKS 6
 #define ACCEL 1 // Inversly Porportional
 #define ACCEL_STEP 3 // Porportional, ust be less than S_SNAP_TOL
-#define HIGH_TUS_SUB 100 // Increases accelaration in this range from 0
-#define HIGH_TUS_SUB_MULT 2 // Acceration Multiplyer (<<) in sub zone
+#define HIGH_TUS_SUB 150 // Increases accelaration in this range from 0
+#define HIGH_TUS_SUB_MULT 4 // Acceration Multiplyer (<<) in sub zone
 
 uint8_t dir_pins[6] = {3,5,7};
 uint8_t stp_pins[6] = {2,4,6};
@@ -29,7 +36,7 @@ uint8_t stp_pins[6] = {2,4,6};
 #define DIR_PIN(stick) dir_pins[stick]
 #define MAX_TUS 1
 #define MIN_TUS 30
-#define S_SNAP_TOL 5
+#define S_SNAP_TOL 20
 
 #if defined (__arm__) && defined (__SAM3X8E__)
   // Defines Fastwrite functions for Arduino Due
@@ -38,19 +45,31 @@ uint8_t stp_pins[6] = {2,4,6};
 #endif
 
 void setup() {
-//  Serial.begin(115200);
+  Serial.begin(115200);
   pendant.setup();
+  mcp.begin();
+  
   for (int stick = 0; stick < N_STICKS; stick ++) {
     pinMode(STEP_PIN(stick), OUTPUT);
     pinMode(DIR_PIN(stick), OUTPUT);
   }
-  // Port Manipulations
+  
+  for (int i = 0; i < N_STICKS; i++){
+    mcp.pinMode(limit_pins[i], INPUT);
+    mcp.pullUp(limit_pins[i], HIGH);  // turn on a 100K pullup internally
+  }
+  mcp.pinMode(4, OUTPUT);
+  mcp.pinMode(5, OUTPUT);
+  mcp.pinMode(6, OUTPUT);
+  mcp.digitalWrite(4, HIGH);
+  mcp.digitalWrite(5, HIGH);
+  mcp.digitalWrite(6, HIGH);
 }
 
 
 void loop() {
-  get_dest_vel();
   
+  get_dest_vel();
   if (accel_clk == 0) {
     accel();
   }
@@ -122,6 +141,9 @@ void get_dest_vel() { // Reads button values and sets destination stepper veloci
   pendant.run_once();
   for (int stick = 0; stick < N_STICKS; stick ++) {
     
+    limit_values[stick] = mcp.digitalRead(limit_pins[stick]);
+    Serial.print(limit_values[stick]);
+    
     if (pendant.sw_pos(stick+3) == 2) {
       if (pendant.sw_pos(IDX_SW_SPEED) == 0) {
         dst_s_vel[stick] = L_DEST_VEL;
@@ -147,7 +169,13 @@ void get_dest_vel() { // Reads button values and sets destination stepper veloci
     else {
       dst_s_vel[stick] = 0;
     }
+    
+    //Interupt
+    if (limit_values[stick] == 0) {
+      dst_s_vel[stick] = 0;
+    }
   }
+  Serial.println("");
 }
 
 void accel() {
@@ -184,7 +212,5 @@ void dir_vel_set() {
       stick_dir[stick] = LOW;
       stick_tus[stick] = map(s_vel[stick], 0, -200, MIN_TUS, MAX_TUS);
     }
-//    Serial.println(stick_tus[stick]);
   }
-//  Serial.println("------");
 }
