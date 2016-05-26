@@ -6,25 +6,31 @@
 IDXPendant pendant;
 
 Adafruit_MCP23008 mcp;
-uint8_t  limit_pins[6] =  {2,1,0}; // Limit switch inputs on the MCP23008
+uint8_t limit_pins[6] =  {2,1,0}; // Limit switch inputs on the MCP23008
 uint8_t limit_values[8];
 uint8_t limit_state[8];
+uint8_t step_b_state;
 
-int s_vel[6];
+int cur_s_vel[6];
 int dst_s_vel[6];
 
 uint8_t accel_clk = 0;
 
 uint8_t stick_dir[6];
-uint8_t stick_tus[6] = {5,5,5};
+uint8_t stick_tus[6];
 uint8_t stick_clk[6];
 uint8_t stick_stp[6];
+uint8_t prev_s_dir[6];
+uint8_t add_stps_cnt[6];
+#define EXTRA_LIMIT_STPS 3
+
+uint8_t axis[6] = {IDX_SW_AXIS0, IDX_SW_AXIS1, IDX_SW_AXIS2, IDX_SW_AXIS3, IDX_SW_AXIS4, IDX_SW_AXIS5};
 
 #define H_DEST_VEL 200
 #define M_DEST_VEL 185
 #define L_DEST_VEL 135
 
-#define N_STICKS 6
+#define N_AXIS 6
 #define ACCEL 1 // Inversly Porportional
 #define ACCEL_STEP 3 // Porportional, ust be less than S_SNAP_TOL
 #define HIGH_TUS_SUB 150 // Increases accelaration in this range from 0
@@ -37,11 +43,16 @@ uint8_t stp_pins[6] = {2,4,6};
 #define MAX_TUS 1
 #define MIN_TUS 30
 #define S_SNAP_TOL 20
+#define LIM_OVER_VEL 100 // Override velocity for limits
 
-#if defined (__arm__) && defined (__SAM3X8E__)
+#if defined (__SAM3X8E__)
   // Defines Fastwrite functions for Arduino Due
   #define fastSet(pin) (digitalPinToPort(pin)->PIO_SODR |= digitalPinToBitMask(pin) ) 
-  #define fastClear(pin) (digitalPinToPort(pin)->PIO_CODR |= digitalPinToBitMask(pin) ) 
+  #define fastClear(pin) (digitalPinToPort(pin)->PIO_CODR |= digitalPinToBitMask(pin) )
+#else
+  // Defines Fastwrite functions for other Arduinos
+  #define fastSet(pin) (digitalFastWrite2(pin, HIGH))
+  #define fastClear(pin) (digitalFastWrite2(pin, LOW))
 #endif
 
 void setup() {
@@ -49,26 +60,18 @@ void setup() {
   pendant.setup();
   mcp.begin();
   
-  for (int stick = 0; stick < N_STICKS; stick ++) {
+  for (int stick = 0; stick < N_AXIS; stick ++) {
     pinMode(STEP_PIN(stick), OUTPUT);
     pinMode(DIR_PIN(stick), OUTPUT);
   }
   
-  for (int i = 0; i < N_STICKS; i++){
+  for (int i = 0; i < N_AXIS; i++){
     mcp.pinMode(limit_pins[i], INPUT);
     mcp.pullUp(limit_pins[i], HIGH);  // turn on a 100K pullup internally
   }
-  mcp.pinMode(4, OUTPUT);
-  mcp.pinMode(5, OUTPUT);
-  mcp.pinMode(6, OUTPUT);
-  mcp.digitalWrite(4, HIGH);
-  mcp.digitalWrite(5, HIGH);
-  mcp.digitalWrite(6, HIGH);
 }
 
-
 void loop() {
-  
   get_dest_vel();
   if (accel_clk == 0) {
     accel();
@@ -82,7 +85,7 @@ void loop() {
   
   dir_vel_set();
   
-  for (int stick = 0; stick < N_STICKS; stick ++) { // CLK Steps
+  for (int stick = 0; stick < N_AXIS; stick ++) { // CLK Steps
     if (!(stick_clk[stick]--)) {
       stick_clk[stick] = stick_tus[stick];
       if (stick_tus[stick] != 0 && stick_tus[stick] < MIN_TUS) {
@@ -96,121 +99,132 @@ void loop() {
       stick_stp[stick] = 0;
     }
   }
-  for (int stick = 0; stick < N_STICKS; stick ++) { // Write Steps and Directions
+  for (int stick = 0; stick < N_AXIS; stick ++) { // Write Steps and Directions
     if (stick_stp[stick] == 1) {
-      #if defined(__arm__) && defined (__SAM3X8E__)
-        fastSet(STEP_PIN(stick));
-      #else
-        digitalFastWrite2(STEP_PIN(stick), HIGH);
-      #endif
+      fastSet(STEP_PIN(stick));
+      add_stps_cnt[stick] += 1;
     }
     else if(stick_stp[stick] == 0) {
-      #if defined(__arm__) && defined (__SAM3X8E__)
-        fastClear(STEP_PIN(stick));
-      #else
-        digitalFastWrite2(STEP_PIN(stick), LOW);
-      #endif
+      fastClear(STEP_PIN(stick));
     }
     
-    #if defined(__arm__) && defined (__SAM3X8E__)
-      if (stick_dir[stick] == HIGH) {
-        fastSet(DIR_PIN(stick));
-      }
-      else {
-        fastClear(DIR_PIN(stick));
-      }
-    #else
-      digitalFastWrite2(DIR_PIN(stick), stick_dir[stick]);
-    #endif
-    delayMicroseconds(12);
     
-    for (int i = 0; i < N_STICKS; i ++) {
-      #if defined(__arm__) && defined (__SAM3X8E__)
-        fastClear(STEP_PIN(stick));
-      #else
-        digitalFastWrite2(STEP_PIN(stick), LOW);
-      #endif
+    if (stick_dir[stick] == HIGH) {
+      fastSet(DIR_PIN(stick));
+    }
+    else {
+      fastClear(DIR_PIN(stick));
     }
     
-    delayMicroseconds(12);
+    delayMicroseconds(4);
+    
+    for (int i = 0; i < N_AXIS; i ++) {
+      fastClear(STEP_PIN(stick));
+    }
+    
+    delayMicroseconds(4);
   }
 }
-
 
 void get_dest_vel() { // Reads button values and sets destination stepper velocity
   pendant.run_once();
-  for (int stick = 0; stick < N_STICKS; stick ++) {
-    
+  
+  step_b_state = pendant.sw_pos(IDX_SW_STEP); // Read Step Button State
+  
+  for (int stick = 0; stick < N_AXIS; stick ++) {
     limit_values[stick] = mcp.digitalRead(limit_pins[stick]);
-    Serial.print(limit_values[stick]);
     
-    if (pendant.sw_pos(stick+3) == 2) {
-      if (pendant.sw_pos(IDX_SW_SPEED) == 0) {
-        dst_s_vel[stick] = L_DEST_VEL;
+    if (limit_state[stick] == 0) {
+      if (pendant.sw_pos(axis[stick]) == 2) {
+        if (pendant.sw_pos(IDX_SW_SPEED) == 0) {
+          dst_s_vel[stick] = L_DEST_VEL;
+        }
+        else if (pendant.sw_pos(IDX_SW_SPEED) == 1) {
+          dst_s_vel[stick] = M_DEST_VEL;
+        }
+        else {
+          dst_s_vel[stick] = H_DEST_VEL;
+        }
       }
-      else if (pendant.sw_pos(IDX_SW_SPEED) == 1) {
-        dst_s_vel[stick] = M_DEST_VEL;
+      else if (pendant.sw_pos(axis[stick]) == 0) {
+        if (pendant.sw_pos(IDX_SW_SPEED) == 0) {
+          dst_s_vel[stick] = -L_DEST_VEL;
+        }
+        else if (pendant.sw_pos(IDX_SW_SPEED) == 1) {
+          dst_s_vel[stick] = -M_DEST_VEL;
+        }
+        else {
+          dst_s_vel[stick] = -H_DEST_VEL;
+        }
       }
       else {
-        dst_s_vel[stick] = H_DEST_VEL;
+        dst_s_vel[stick] = 0;
       }
-    }
-    else if (pendant.sw_pos(stick+3) == 0) {
-      if (pendant.sw_pos(IDX_SW_SPEED) == 0) {
-        dst_s_vel[stick] = -L_DEST_VEL;
-      }
-      else if (pendant.sw_pos(IDX_SW_SPEED) == 1) {
-        dst_s_vel[stick] = -M_DEST_VEL;
-      }
-      else {
-        dst_s_vel[stick] = -H_DEST_VEL;
-      }
-    }
-    else {
-      dst_s_vel[stick] = 0;
     }
     
     //Interupt
-    if (limit_values[stick] == 0) {
-      dst_s_vel[stick] = 0;
+    if (limit_values[stick] == 0 && step_b_state != 0 && limit_state[stick] == 0) {
+      if (cur_s_vel[stick] > 0) {
+        prev_s_dir[stick] = HIGH;
+      }
+      else {
+        prev_s_dir[stick] = LOW;
+      }
+      limit_state[stick] = 1;
     }
+    if (cur_s_vel[stick] == dst_s_vel[stick] && limit_state[stick] == 1) {
+      if (prev_s_dir[stick] == HIGH) {
+        dst_s_vel[stick] = LIM_OVER_VEL * -1;
+      }
+      else {
+        dst_s_vel[stick] = LIM_OVER_VEL;
+      }
+      limit_state[stick] = 2;
+    }
+    if (limit_state[stick] == 2 && limit_values[stick] == 1) {
+      limit_state[stick] = 3;
+    }
+    if (limit_state[stick] == 3 && add_stps_cnt[stick] >= EXTRA_LIMIT_STPS) {
+      limit_state[stick] = 0;
+      add_stps_cnt[stick] = 0;
+    }
+    Serial.println(limit_state[stick]);
   }
-  Serial.println("");
 }
 
 void accel() {
-  for (int stick = 0; stick < N_STICKS; stick ++) {
-    if (s_vel[stick] < dst_s_vel[stick]) {
-      if (s_vel[stick] < HIGH_TUS_SUB && s_vel[stick] > -HIGH_TUS_SUB) {
-        s_vel[stick] += ACCEL_STEP<<HIGH_TUS_SUB_MULT;
+  for (int stick = 0; stick < N_AXIS; stick ++) {
+    if (cur_s_vel[stick] < dst_s_vel[stick]) {
+      if (cur_s_vel[stick] < HIGH_TUS_SUB && cur_s_vel[stick] > -HIGH_TUS_SUB) {
+        cur_s_vel[stick] += ACCEL_STEP<<HIGH_TUS_SUB_MULT;
       }
       else {
-        s_vel[stick] += ACCEL_STEP;
+        cur_s_vel[stick] += ACCEL_STEP;
       }
     }
-    if (s_vel[stick] > dst_s_vel[stick]) {
-      if (s_vel[stick] < HIGH_TUS_SUB && s_vel[stick] > -HIGH_TUS_SUB) {
-        s_vel[stick] -= ACCEL_STEP<<HIGH_TUS_SUB_MULT;
+    if (cur_s_vel[stick] > dst_s_vel[stick]) {
+      if (cur_s_vel[stick] < HIGH_TUS_SUB && cur_s_vel[stick] > -HIGH_TUS_SUB) {
+        cur_s_vel[stick] -= ACCEL_STEP<<HIGH_TUS_SUB_MULT;
       }
       else {
-        s_vel[stick] -= ACCEL_STEP;
+        cur_s_vel[stick] -= ACCEL_STEP;
       }
     }
-    if (s_vel[stick] < (dst_s_vel[stick] + S_SNAP_TOL) && s_vel[stick] > (dst_s_vel[stick] - S_SNAP_TOL)) {
-      s_vel[stick] = dst_s_vel[stick];
+    if (cur_s_vel[stick] < (dst_s_vel[stick] + S_SNAP_TOL) && cur_s_vel[stick] > (dst_s_vel[stick] - S_SNAP_TOL)) {
+      cur_s_vel[stick] = dst_s_vel[stick];
     }
   }
 }
 
 void dir_vel_set() {
-  for (int stick = 0; stick < N_STICKS; stick ++) {
-    if (s_vel[stick] > 0) {
+  for (int stick = 0; stick < N_AXIS; stick ++) {
+    if (cur_s_vel[stick] > 0) {
       stick_dir[stick] = HIGH;
-      stick_tus[stick] = map(s_vel[stick], 0, 200, MIN_TUS, MAX_TUS);
+      stick_tus[stick] = map(cur_s_vel[stick], 0, 200, MIN_TUS, MAX_TUS);
     }
     else {
       stick_dir[stick] = LOW;
-      stick_tus[stick] = map(s_vel[stick], 0, -200, MIN_TUS, MAX_TUS);
+      stick_tus[stick] = map(cur_s_vel[stick], 0, -200, MIN_TUS, MAX_TUS);
     }
   }
 }
