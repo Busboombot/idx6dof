@@ -34,17 +34,17 @@ class IDXPendant {
 
   public:
 
-  IDXPendant();
-
-  static const int num_switches;
-
-  void setup(); // Initialize the input and output pins
+    IDXPendant();
   
-  bool run_once(); // Scan once and record which switches are set
+    static const int num_switches;
   
-  void print_serial(); // Write the two switch bit values to the serial port. 
-
-  int sw_pos(int switch_n); // Return the position of a switch
+    void setup(); // Initialize the input and output pins
+    
+    bool run_once(); // Scan once and record which switches are set
+    
+    void print_serial(); // Write the two switch bit values to the serial port. 
+  
+    int sw_pos(int switch_n); // Return the position of a switch
 
   private:
 

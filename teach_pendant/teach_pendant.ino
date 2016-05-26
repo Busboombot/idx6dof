@@ -15,8 +15,7 @@ void setup() {
 
 
 void loop() {
-  int sis = 0;
-  
+
   if(pendant.run_once()) {
     pendant.print_serial();
 

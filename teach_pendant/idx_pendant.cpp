@@ -71,9 +71,6 @@ bool IDXPendant::run_once() {
         if (digitalRead(this->inpins[j])){
           
           switch_set_count++;
-          //Serial.print(this->outpins[i],DEC);
-          //Serial.print("->");
-          //Serial.println(this->inpins[j],DEC);
           
           switch (i+j*8) {
             case 4: SET_SW_UP(2); break; 
