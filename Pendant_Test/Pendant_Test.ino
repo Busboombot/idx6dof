@@ -65,7 +65,7 @@ void setup() {
     pinMode(DIR_PIN(stick), OUTPUT);
   }
   
-  for (int i = 0; i < N_AXIS; i++){
+  for (int i = 0; i < 6; i++){
     mcp.pinMode(limit_pins[i], INPUT);
     mcp.pullUp(limit_pins[i], HIGH);  // turn on a 100K pullup internally
   }
@@ -188,8 +188,11 @@ void get_dest_vel() { // Reads button values and sets destination stepper veloci
       limit_state[stick] = 0;
       add_stps_cnt[stick] = 0;
     }
-    Serial.println(limit_state[stick]);
+    Serial.print(stick);
+    Serial.print(limit_values[stick]);
+    Serial.print("_");
   }
+  Serial.println("");
 }
 
 void accel() {
