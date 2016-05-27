@@ -7,7 +7,7 @@ void setup() {
 
   Serial.begin(9600);
 
-  IDXMcpLimit l;
+  IDXMcpLimit l(1);
 
 }
 
