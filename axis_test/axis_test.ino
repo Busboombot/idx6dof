@@ -3,8 +3,8 @@
 #include "idx_pendant.h"
 
 #define NUM_AXES 6
-#define STEP_DWELL 1000 // Delay, in microsecond, to dwell on the step pulses
-#define UPDATE_DELAY 250 // time, in milliseoncds, between velocity updates
+#define STEP_DWELL 30 // Delay, in microseconds, to dwell on the step pulses
+#define UPDATE_DELAY 150 // time, in milliseconds, between velocity updates
 
 IDXAxis axes[] = {IDXAxis(2,3), IDXAxis(4,5), IDXAxis(6,7), IDXAxis(8,9), IDXAxis(10,11), IDXAxis(12, 13)};
 
@@ -31,17 +31,12 @@ void setup() {
     axes[i].begin();
     axes[i].setVelocity(0);
   }
-  Serial.begin(9600);
 
-  pinMode(10, OUTPUT); // For timin sections of code
-  
 }
 
 int tick = 0;
 int next_update = 0; // TIme, in milis(), for the next velocity update. 
 int run_update = false;
-
-
 
 void loop() {
   
@@ -56,14 +51,12 @@ void loop() {
 
     if (run_update){
 
-      fastSet(10);
       pendant.run_once();
-      fastClear(10);
-      
+
       target_velocity = switch_pos_velocities[pendant.sw_pos(IDX_SW_SPEED)];
 
       for (int i = 0; i < NUM_AXES; i++){
-
+        axes[i].setVelocity(target_velocity);
         switch(pendant.sw_pos(axis_switches[i])){
           case IDX_SW_POS_TOP:
             axes[i].setVelocity(target_velocity);
