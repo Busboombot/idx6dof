@@ -1,4 +1,9 @@
 
+/*  Axis Test
+A basic test of the operation of the IDXAxis class, using the pentant to drive all six axes. 
+This code only runs on an Arduino Due with the IDX Teach Pendant attached. The pendant has currently 
+has hard-coded pin assignements. 
+*/
 #include "idx_axis.h"
 #include "idx_pendant.h"
 
@@ -15,11 +20,11 @@ int axis_switches[] = {IDX_SW_AXIS0, IDX_SW_AXIS1, IDX_SW_AXIS2, IDX_SW_AXIS3, I
 int target_velocity = 0; // Only one velocity switch, so it is the same for all axes
 int switch_pos_velocities[3];
 
+// NOTE! These only work on the SAM3X, or possibly other ARM Chips, but certainly the Arduino DUE. 
 #define fastSet(pin) (digitalPinToPort(pin)->PIO_SODR |= digitalPinToBitMask(pin) ) 
 #define fastClear(pin) (digitalPinToPort(pin)->PIO_CODR |= digitalPinToBitMask(pin) )
 
 void setup() {
-  // put your setup code here, to run once:
 
   switch_pos_velocities[IDX_SW_POS_TOP] = 31;
   switch_pos_velocities[IDX_SW_POS_MID] = 16;
