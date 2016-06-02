@@ -37,13 +37,13 @@ void setup() {
     axes[i].setVelocity(0);
   }
 
+  Serial.begin(9600);
 }
 
 int tick = 0;
 int next_update = 0; // TIme, in milis(), for the next velocity update. 
 int run_update = false;
-int t_start = 0;
-int reduced_dwell = 0;
+
 
 void loop() {
   
@@ -56,16 +56,24 @@ void loop() {
         axes[i].startTick(tick);
     }
 
-    t_start = micros();
-    
     if (run_update){
 
       pendant.run_once();
 
       target_velocity = switch_pos_velocities[pendant.sw_pos(IDX_SW_SPEED)];
 
+    } else {
+      delayMicroseconds(STEP_DWELL);
+    }
+
+    
+    for (int i = 0; i < NUM_AXES; i++){
+        axes[i].endTick();
+    }
+
+    if (run_update){
       for (int i = 0; i < NUM_AXES; i++){
-        axes[i].setVelocity(target_velocity);
+        
         switch(pendant.sw_pos(axis_switches[i])){
           case IDX_SW_POS_TOP:
             axes[i].setVelocity(target_velocity);
@@ -79,29 +87,15 @@ void loop() {
             axes[i].setVelocity(-target_velocity);
             break;
         }
-      }
-    }
-
-    reduced_dwell = micros() - t_start;
-    
-    if (reduced_dwell > STEP_DWELL) {
-      delayMicroseconds(STEP_DWELL - reduced_dwell);
-    }
-    
-    for (int i = 0; i < NUM_AXES; i++){
-        axes[i].endTick();
-    }
-
-    if (run_update){
-      for (int i = 0; i < NUM_AXES; i++){
+     
         axes[i].updateVelocity();
       }
       
       next_update = millis() + UPDATE_DELAY;
       
+    } else {
+      delayMicroseconds(STEP_DWELL);
     }
-    
-    delayMicroseconds(STEP_DWELL);
 
   }
 
