@@ -6,12 +6,13 @@ has hard-coded pin assignements.
 */
 #include "idx_axis.h"
 #include "idx_pendant.h"
+#include <AccelStepper.h>
 
 #define NUM_AXES 6
 #define STEP_DWELL 40 // Delay, in microseconds, to dwell on the step pulses
 #define UPDATE_DELAY 100 // time, in milliseconds, between velocity updates
-
-IDXAxis axes[] = {IDXAxis(2,3), IDXAxis(4,5), IDXAxis(6,7), IDXAxis(8,9), IDXAxis(10,11), IDXAxis(12, 13)};
+#define ACCEL 700 // Acceleration for moving forward or back
+#define STOP_ACCEL 1500 // Acceleration for stopping
 
 IDXPendant pendant;
 
@@ -24,81 +25,73 @@ int switch_pos_velocities[3];
 #define fastSet(pin) (digitalPinToPort(pin)->PIO_SODR |= digitalPinToBitMask(pin) ) 
 #define fastClear(pin) (digitalPinToPort(pin)->PIO_CODR |= digitalPinToBitMask(pin) )
 
+int tick = 0;
+int next_update = 0; // TIme, in milis(), for the next velocity update. 
+bool run_update = false;
+
+AccelStepper motors[] = {
+  AccelStepper(AccelStepper::DRIVER, 2, 3), AccelStepper(AccelStepper::DRIVER, 4, 5),
+  AccelStepper(AccelStepper::DRIVER, 6, 7), AccelStepper(AccelStepper::DRIVER, 8, 9), 
+  AccelStepper(AccelStepper::DRIVER, 10, 11), AccelStepper(AccelStepper::DRIVER, 12, 13)
+};
+
+
 void setup() {
 
-  switch_pos_velocities[IDX_SW_POS_TOP] = 31;
-  switch_pos_velocities[IDX_SW_POS_MID] = 16;
-  switch_pos_velocities[IDX_SW_POS_BOTTOM] = 5;
+  switch_pos_velocities[IDX_SW_POS_TOP] = 550;
+  switch_pos_velocities[IDX_SW_POS_MID] = 250;
+  switch_pos_velocities[IDX_SW_POS_BOTTOM] = 75;
 
   pendant.begin();
 
-  for (int i = 0; i < NUM_AXES; i++){
-    axes[i].begin();
-    axes[i].setVelocity(0);
+  for( int i = 0; i < NUM_AXES; i++){
+    motors[i].setMaxSpeed(550);
+    motors[i].setAcceleration(ACCEL);
+
   }
 
-  Serial.begin(9600);
+
 }
 
-int tick = 0;
-int next_update = 0; // TIme, in milis(), for the next velocity update. 
-int run_update = false;
-
+AccelStepper *motor;
 
 void loop() {
-  
-  while (true){
-    tick ++;
 
-    run_update = (millis() > next_update);
-
-    for (int i = 0; i < NUM_AXES; i++){
-        axes[i].startTick(tick);
-    }
-
-
-    if (run_update){
+  if (millis() > next_update){
 
       pendant.run_once();
 
       target_velocity = switch_pos_velocities[pendant.sw_pos(IDX_SW_SPEED)];
 
-    } else {
-      delayMicroseconds(STEP_DWELL);
-    }
-
-    
-    for (int i = 0; i < NUM_AXES; i++){
-        axes[i].endTick();
-    }
-
-    if (run_update){
       for (int i = 0; i < NUM_AXES; i++){
-        
+
+        motor = motors + i;
+
         switch(pendant.sw_pos(axis_switches[i])){
           case IDX_SW_POS_TOP:
-            axes[i].setVelocity(target_velocity);
+            motor->setAcceleration(ACCEL);
+            motor->moveTo(motor->currentPosition()+1000);
             break;
 
           case IDX_SW_POS_MID: 
-            axes[i].setVelocity(0);
+            motor->setAcceleration(STOP_ACCEL);
+            motor->moveTo(motor->currentPosition());
             break;
 
           case IDX_SW_POS_BOTTOM: 
-            axes[i].setVelocity(-target_velocity);
+            motor->setAcceleration(ACCEL);
+            motor->moveTo(motor->currentPosition()-1000);
             break;
         }
-
-        axes[i].updateVelocity();
       }
-      
+
       next_update = millis() + UPDATE_DELAY;
-      
-    } else {
-      delayMicroseconds(STEP_DWELL);
     }
 
+  for( int i = 0; i < NUM_AXES; i++){
+    motors[i].run();
   }
+
 
 }
 
