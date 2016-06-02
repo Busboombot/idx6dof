@@ -3,8 +3,8 @@
 #include "idx_pendant.h"
 
 #define NUM_AXES 6
-#define STEP_DWELL 30 // Delay, in microseconds, to dwell on the step pulses
-#define UPDATE_DELAY 150 // time, in milliseconds, between velocity updates
+#define STEP_DWELL 40 // Delay, in microseconds, to dwell on the step pulses
+#define UPDATE_DELAY 100 // time, in milliseconds, between velocity updates
 
 IDXAxis axes[] = {IDXAxis(2,3), IDXAxis(4,5), IDXAxis(6,7), IDXAxis(8,9), IDXAxis(10,11), IDXAxis(12, 13)};
 
@@ -37,6 +37,8 @@ void setup() {
 int tick = 0;
 int next_update = 0; // TIme, in milis(), for the next velocity update. 
 int run_update = false;
+int t_start = 0;
+int reduced_dwell = 0;
 
 void loop() {
   
@@ -49,6 +51,8 @@ void loop() {
         axes[i].startTick(tick);
     }
 
+    t_start = micros();
+    
     if (run_update){
 
       pendant.run_once();
@@ -72,8 +76,12 @@ void loop() {
         }
       }
     }
+
+    reduced_dwell = micros() - t_start;
     
-    delayMicroseconds(STEP_DWELL);
+    if (reduced_dwell > STEP_DWELL) {
+      delayMicroseconds(STEP_DWELL - reduced_dwell);
+    }
     
     for (int i = 0; i < NUM_AXES; i++){
         axes[i].endTick();
