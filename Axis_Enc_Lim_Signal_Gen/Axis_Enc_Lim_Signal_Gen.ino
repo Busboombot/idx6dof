@@ -2,6 +2,7 @@
 #include <digitalWriteFast.h>
 
 int16_t analogVal;
+uint16_t tick = 0;
 
 int8_t dir;
 uint16_t del;
@@ -29,8 +30,14 @@ void setup() {
 void loop() {
   
   if (micros() >= del_clk+del) {
+    
+    tick++;
+    
     del_clk = micros();
-    readAnalog();
+    if (tick % 100 == 0) {
+      readAnalog();
+      tick = 0;
+    }
     enc_pos += dir;
     if (enc_pos == ENC_STPS_PER_ROT) {
       enc_pos = 0;
