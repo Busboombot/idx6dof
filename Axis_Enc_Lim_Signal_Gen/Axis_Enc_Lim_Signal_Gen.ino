@@ -13,17 +13,13 @@ uint32_t enc_pos;
 uint8_t index_state = 0;
 
 #define POT_PIN A0
-#define QUAD_A 5
-#define QUAD_B 6
-#define INDEX 7
-#define LIMIT 4
 
 #define STPS_PER_ROT 2000 // Should be evenly divisable by 4
 #define ENC_STPS_PER_ROT (STPS_PER_ROT * 80)
 #define STPS_PER_INDEX 200
 #define ENC_STPS_PER_INDEX (STPS_PER_INDEX * 80)
 
-#define MAX_DEL 2000
+#define MAX_DEL 20000
 #define MIN_DEL 0
 
 void setup() {
