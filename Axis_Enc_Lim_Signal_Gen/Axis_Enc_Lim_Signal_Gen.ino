@@ -20,7 +20,7 @@ uint8_t index_state = 0;
 #define STPS_PER_INDEX 200
 #define ENC_STPS_PER_INDEX (STPS_PER_INDEX * 80)
 
-#define MAX_DEL 20000
+#define MAX_DEL 10000
 #define MIN_DEL 0
 
 void setup() {
