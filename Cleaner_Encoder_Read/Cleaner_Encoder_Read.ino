@@ -59,10 +59,13 @@ void loop() {
 
   if (ser_clk > SER_DEL) {
     Serial.println('S');
+    Serial.print((encOne.p>>8), BIN);
     Serial.println(encOne.p, BIN);
     Serial.println(encOne.d, BIN);
+    Serial.print((encTwo.p>>8), BIN);
     Serial.println(encTwo.p, BIN);
     Serial.println(encTwo.d, BIN);
+    Serial.print((encThree.p>>8), BIN);
     Serial.println(encThree.p, BIN);
     Serial.println(encThree.d, BIN);
     for (int i = 0; i < NUM_LIMITS; i++) {
