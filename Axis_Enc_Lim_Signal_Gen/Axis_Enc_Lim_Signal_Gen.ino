@@ -16,9 +16,9 @@ uint8_t index_state = 0;
 #define POT_PIN A0
 
 #define STPS_PER_ROT 2000 // Should be evenly divisable by 4
-#define ENC_STPS_PER_ROT (STPS_PER_ROT * 80)
+#define ENC_STPS_PER_ROT (STPS_PER_ROT * 10)
 #define STPS_PER_INDEX 200
-#define ENC_STPS_PER_INDEX (STPS_PER_INDEX * 80)
+#define ENC_STPS_PER_INDEX (STPS_PER_INDEX * 10)
 
 #define MAX_DEL 10000
 #define MIN_DEL 0
@@ -48,11 +48,11 @@ void loop() {
     if ((enc_pos % ENC_STPS_PER_INDEX) == 0) {
       index_state = 1;
     }
-    if (index_state != 0) {
-      index();
-    }
     encode();
     limit();
+  }
+  if (index_state != 0) {
+    index();
   }
 }
 
