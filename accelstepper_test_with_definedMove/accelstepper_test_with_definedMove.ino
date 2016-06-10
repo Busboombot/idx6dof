@@ -72,26 +72,26 @@ void loop() {
 
         motor = motors + i;
         switch (sw_state) {
-          case 0:
+          case IDX_SW_POS_BOTTOM:
             switch (pendant.sw_pos(axis_switches[i])) {
-              case 0:
+              case IDX_SW_POS_BOTTOM:
                 if (bounce == 0) {
                   motor->move(-1*SET_MOVE_STPS);
                   bounce = 1;
                 }
-              break;
-              case 1:
+                break;
+              case IDX_SW_POS_MID:
                 bounce = 0;
-              break;
-              case 2:
+                break;
+              case IDX_SW_POS_TOP:
                 if (bounce == 0) {
                   motor->move(SET_MOVE_STPS);
                   bounce = 1;
                 }
-              break;
+                break;
             }
-          break;
-          case 1:
+            break;
+          case IDX_SW_POS_MID:
             switch(pendant.sw_pos(axis_switches[i])){
               case IDX_SW_POS_TOP:
                 motor->setAcceleration(ACCEL);
@@ -108,7 +108,7 @@ void loop() {
                 motor->moveTo(motor->currentPosition()-1000);
                 break;
             }
-          break;
+            break;
         }
       }
 
