@@ -1,114 +1,105 @@
+/*
+ * Generate quadrature encoder, index and limit siggnals like one axis of an IXD 6 Axis robot. 
+ * 
+ * The program reads a potentiometer on analog A0 to set the step generation speed. 
+ * Pin 4: Limit switch. High for half of axis rotation, low for the other half
+ * Pin 5: Quadrature A
+ * Pin 6: Quadrature B
+ * Pin 7: Index
+ */
+ 
 #include <bithacks.h>
 #include <digitalWriteFast.h>
 
 int16_t analogVal;
+int32_t next_analog_read = 0;
 uint16_t tick = 0;
 
-int8_t dir;
-uint16_t del;
-uint32_t del_clk;
+int8_t dir = 0;
+uint16_t delay_time = 0;
 
-uint8_t state;
-uint32_t enc_pos;
+
+uint8_t state = 0;
+uint32_t enc_pos = 0;
 
 uint8_t index_state = 0;
 
 #define POT_PIN A0
 
-#define STPS_PER_ROT 2000 // Should be evenly divisable by 4
-#define ENC_STPS_PER_ROT (STPS_PER_ROT * 10)
-#define STPS_PER_INDEX 200
-#define ENC_STPS_PER_INDEX (STPS_PER_INDEX * 10)
 
-#define MAX_DEL 10000
+#define ENC_STPS_PER_ROT 20000 
+#define ENC_STPS_PER_INDEX 5000
+
+#define MAX_DEL 250
 #define MIN_DEL 0
 
 void setup() {
   DDRD = DDRD | B11110000; // Set pins 4, 5, 6, and 7 as outputs
+  Serial.begin(115200);
 }
 
 void loop() {
   
-  if (micros() >= del_clk+del) {
-    
-    tick++;
-    
-    del_clk = micros();
-    if (tick % 100 == 0) {
-      readAnalog();
+
+  tick++;
+  
+  if (micros() > next_analog_read ) {
+      analogVal = analogRead(POT_PIN); // 109.5 us - Replace with 555 timer ADC?
+      delay_time = map( abs(analogVal-512), 0, 512, MAX_DEL, 0);
+
+      if (delay_time < 5) {
+        delay_time = 0;
+      }
+      
+      dir = (analogVal > 0) ? 1 : -1;
       tick = 0;
-    }
-    enc_pos += dir;
-    if (enc_pos == ENC_STPS_PER_ROT) {
-      enc_pos = 0;
-    }
-    else if (enc_pos == 0) {
-      enc_pos = ENC_STPS_PER_ROT;
-    }
-    if ((enc_pos % ENC_STPS_PER_INDEX) == 0) {
-      index_state = 1;
-    }
-    encode();
-    limit();
-  }
-  if (index_state != 0) {
-    index();
-  }
-}
 
-void index() {
-  switch (index_state) {
-    case 1:
-      PORTD |= B10000000;
-    break;
-    case 3:
-      PORTD &= (~B10000000);
-    break;
-  }
-  index_state++;
-  if (index_state == 4) {
-    index_state = 0;
-  }
-}
+      next_analog_read = micros() + 1000;
 
-void encode() {
-  state = enc_pos % 4;
-  switch (state) {
+  }
+
+  delay(delay_time);
+  
+  enc_pos += dir;
+
+  // Handle limit switch and encoder position value wrap-around
+  if (enc_pos % ENC_STPS_PER_ROT == 0) {
+    PORTD |=   B00010000; // Turn limit on
+  
+  } else if (enc_pos % (ENC_STPS_PER_ROT/2)  == 0) {
+    PORTD &= (~B00010000); // turn limit off
+    
+  }
+
+  if ((enc_pos % ENC_STPS_PER_INDEX) == 0) {
+        PORTD |= B10000000; // turn Index on
+  } else if ((enc_pos % ENC_STPS_PER_INDEX) == 3) {
+        PORTD &= (~B10000000); // turn off index
+  }
+
+  switch (enc_pos % 4) {
     case 0:
-      PORTD |= B01000000; // 6 = HIGH|5 = LOW
-      PORTD &= (~B00100000);
-    break;
+      PORTD |=   B01000000;  // 6 = HIGH
+      PORTD &= (~B00100000); // 5 = LOW
+      state = 1;
+      break;
     case 1:
-      PORTD |= B01100000; // 6 = HIGH|5 = HIGH
-    break;
+      PORTD |=   B01100000; // 6 = HIGH|5 = HIGH
+      state = 2;
+      break;
     case 2:
-      PORTD &= (~B01000000);
-      PORTD |= B00100000; // 6 = LOW|5 = HIGH
-    break;
+      PORTD &= (~B01000000); // 6 = LOW
+      PORTD |=   B00100000; // 5 = HIGH
+      state = 3;
+      break;
     case 3:
       PORTD &= (~B01100000); // 6 = LOW|5 = LOW
-    break;
+      state = 0;
+      break;
   }
+
+  
 }
 
-void limit() {
-  if (enc_pos > ENC_STPS_PER_ROT/2) {
-    PORTD |= B00010000;
-  }
-  else {
-    PORTD &= (~B00010000);
-  }
-}
 
-void readAnalog() {
-  analogVal = analogRead(POT_PIN); // 109.5 us - Replace with 555 timer ADC?
-  if (analogVal>512) {
-    del = map(analogVal, 513, 1024, MAX_DEL, MIN_DEL);
-    dir = 1;
-  }
-  else {
-    del = map(analogVal, 0, 512, MIN_DEL, MAX_DEL);
-    dir = -1;
-  }
-}
 

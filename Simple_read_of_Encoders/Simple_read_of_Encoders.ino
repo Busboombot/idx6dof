@@ -8,22 +8,25 @@
 
 #define NUM_ENC 3
 #define SER_WRITE_INTER 100
-#define VEL_READ_DEL 5000
+#define VEL_READ_DEL 1000 // How often to calc velocity, in miliseconds
 
 struct ENC {
   
-  int16_t a;
-  int16_t b;
-  int16_t c;
-  int8_t va;
-  int8_t vb;
-  int8_t vc;
+  int32_t a;
+  int32_t b;
+  int32_t c;
+  float va;
+  float vb;
+  float vc;
   
 };
 
 unsigned long milli_store;
-int16_t pos_store[3];
-uint16_t vel_clk;
+int32_t last_velocity_calc = 0;
+int32_t last_velocity_step = 0;
+int32_t pos_store[3]; // last positions
+
+float velocity_denominator = 0.0;
 
 ENC enc;
 
@@ -39,37 +42,38 @@ uint8_t clk;
 void setup() {
   Serial.begin(115200);
   pinMode(13, OUTPUT);
+
+  // Pre-compute the denominator time-step for calculating velocity
+  // converting it from milis to seconds
+  velocity_denominator = float(VEL_READ_DEL) / 1000.0;
+  
 }
 
 void loop() {
-//  PORTD = B00010000;
+
   enc.a = encOne.read(); // W/o PWM-202kHz | W/ PWM-202kHz | W/Inter-727kHz
   enc.b = encTwo.read();
   enc.c = encThree.read();
   
-  if (clk == 200) {
-    Serial.println(enc.a);
-    Serial.println(enc.b);
-    Serial.println(enc.c);
-    Serial.println("|||");
-    Serial.println(enc.va);
-    Serial.println(enc.vb);
-    Serial.println(enc.vc);
-    Serial.println("---");
+  if (clk++ == 200) {
+    Serial.print(enc.a);Serial.print(" ");Serial.print(enc.va);Serial.print(", ");
+    Serial.print(enc.b);Serial.print(" ");Serial.print(enc.vb);Serial.print(", ");
+    Serial.print(enc.c);Serial.print(" ");Serial.print(enc.vc);Serial.print(", ");
+    Serial.print("\n");
     clk = 0;
   }
-  if (millis() >= milli_store + VEL_READ_DEL) {
-    enc.va = (enc.a-pos_store[0])/VEL_READ_DEL;
-    enc.vb = (enc.b-pos_store[1])/VEL_READ_DEL;
-    enc.vc = (enc.c-pos_store[2])/VEL_READ_DEL;
-    milli_store = millis();
+  
+  if (millis() > milli_store + VEL_READ_DEL){
+    enc.va = float(enc.a-pos_store[0])/velocity_denominator;
+    enc.vb = float(enc.b-pos_store[1])/velocity_denominator;
+    enc.vc = float(enc.c-pos_store[2])/velocity_denominator;
+    
     pos_store[0] = enc.a;
     pos_store[1] = enc.b;
     pos_store[2] = enc.c;
+    milli_store = millis();
   }
-  
-  clk++;
-  vel_clk++;
-//  PORTD = B00000000;
+
+
   
 }
