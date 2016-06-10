@@ -9,10 +9,10 @@ has hard-coded pin assignements.
 #include <AccelStepper.h>
 
 #define NUM_AXES 6
-#define STEP_DWELL 40 // Delay, in microseconds, to dwell on the step pulses
-#define UPDATE_DELAY 100 // time, in milliseconds, between velocity updates
-#define ACCEL 700 // Acceleration for moving forward or back
-#define STOP_ACCEL 1500 // Acceleration for stopping
+#define UPDATE_DELAY 500 // time, in milliseconds, between velocity updates
+#define ACCEL 2500 // Acceleration for moving forward or back
+#define STOP_ACCEL 5000 // Acceleration for stopping
+#define MAX_SPEED 5000
 
 IDXPendant pendant;
 
@@ -38,14 +38,14 @@ AccelStepper motors[] = {
 
 void setup() {
 
-  switch_pos_velocities[IDX_SW_POS_TOP] = 550;
-  switch_pos_velocities[IDX_SW_POS_MID] = 250;
-  switch_pos_velocities[IDX_SW_POS_BOTTOM] = 75;
+  switch_pos_velocities[IDX_SW_POS_TOP] = MAX_SPEED;
+  switch_pos_velocities[IDX_SW_POS_MID] = MAX_SPEED/5;
+  switch_pos_velocities[IDX_SW_POS_BOTTOM] = MAX_SPEED/10;
 
   pendant.begin();
 
   for( int i = 0; i < NUM_AXES; i++){
-    motors[i].setMaxSpeed(550);
+    motors[i].setMaxSpeed(MAX_SPEED);
     motors[i].setAcceleration(ACCEL);
 
   }
@@ -70,7 +70,8 @@ void loop() {
         switch(pendant.sw_pos(axis_switches[i])){
           case IDX_SW_POS_TOP:
             motor->setAcceleration(ACCEL);
-            motor->moveTo(motor->currentPosition()+1000);
+            motor->setMaxSpeed(target_velocity);
+            motor->moveTo(motor->currentPosition()+10000);
             break;
 
           case IDX_SW_POS_MID: 
@@ -80,7 +81,8 @@ void loop() {
 
           case IDX_SW_POS_BOTTOM: 
             motor->setAcceleration(ACCEL);
-            motor->moveTo(motor->currentPosition()-1000);
+            motor->setMaxSpeed(target_velocity);
+            motor->moveTo(motor->currentPosition()-10000);
             break;
         }
       }
