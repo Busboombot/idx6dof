@@ -13,7 +13,6 @@
 
 int16_t analogVal;
 int32_t next_analog_read = 0;
-uint16_t tick = 0;
 
 int8_t dir = 0;
 uint16_t delay_time = 0;
@@ -40,9 +39,6 @@ void setup() {
 
 void loop() {
   
-
-  tick++;
-  
   if (micros() > next_analog_read ) {
       analogVal = analogRead(POT_PIN); // 109.5 us - Replace with 555 timer ADC?
       delay_time = map( abs(analogVal-512), 0, 512, MAX_DEL, 0);
@@ -52,7 +48,6 @@ void loop() {
       }
       
       dir = (analogVal > 0) ? 1 : -1;
-      tick = 0;
 
       next_analog_read = micros() + 1000;
 
@@ -97,8 +92,6 @@ void loop() {
       state = 0;
       break;
   }
-
-  
 }
 
 
