@@ -52,8 +52,9 @@ void loop() {
   
   else {
     enc.d = 1;
-    enc.prev_p = enc.p;
   }
+  
+  enc.prev_p = enc.p;
   
   if (ser_clk > SER_DEL) {
     serialPrint();
