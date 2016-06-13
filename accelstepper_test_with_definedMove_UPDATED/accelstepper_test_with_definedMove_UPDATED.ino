@@ -21,6 +21,10 @@ int axis_switches[] = {IDX_SW_AXIS0, IDX_SW_AXIS1, IDX_SW_AXIS2, IDX_SW_AXIS3, I
 int target_velocity = 0; // Only one velocity switch, so it is the same for all axes
 int switch_pos_velocities[3];
 
+int8_t sw_state;
+int8_t bounce[NUM_AXES];
+#define SET_MOVE_STPS 1000
+
 // NOTE! These only work on the SAM3X, or possibly other ARM Chips, but certainly the Arduino DUE. 
 #define fastSet(pin) (digitalPinToPort(pin)->PIO_SODR |= digitalPinToBitMask(pin) ) 
 #define fastClear(pin) (digitalPinToPort(pin)->PIO_CODR |= digitalPinToBitMask(pin) )
@@ -62,27 +66,56 @@ void loop() {
       pendant.run_once();
 
       target_velocity = switch_pos_velocities[pendant.sw_pos(IDX_SW_SPEED)];
-
+      sw_state = pendant.sw_pos(IDX_SW_STEP);
+      
       for (int i = 0; i < NUM_AXES; i++){
 
         motor = motors + i;
-
-        switch(pendant.sw_pos(axis_switches[i])){
+        
+        switch (sw_state) {
+          case IDX_SW_POS_BOTTOM:
+            switch (pendant.sw_pos(axis_switches[i])) {
+              case IDX_SW_POS_BOTTOM:
+                if (bounce[i] == 0) {
+                  motor->setMaxSpeed(switch_pos_velocities[IDX_SW_POS_BOTTOM]);
+                  motor->move(-1*SET_MOVE_STPS);
+                  bounce[i] = 1;
+                }
+                break;
+              case IDX_SW_POS_MID:
+                bounce[i] = 0;
+                break;
+              case IDX_SW_POS_TOP:
+                if (bounce[i] == 0) {
+                  motor->setMaxSpeed(switch_pos_velocities[IDX_SW_POS_BOTTOM]);
+                  motor->move(SET_MOVE_STPS);
+                  bounce[i] = 1;
+                }
+                break;
+            }
+            break;
+          case IDX_SW_POS_MID:
+            switch(pendant.sw_pos(axis_switches[i])){
+              case IDX_SW_POS_TOP:
+                motor->setAcceleration(ACCEL);
+                motor->setMaxSpeed(target_velocity);
+                motor->moveTo(motor->currentPosition()+10000);
+                break;
+    
+              case IDX_SW_POS_MID: 
+                motor->setAcceleration(STOP_ACCEL);
+                motor->moveTo(motor->currentPosition());
+                break;
+    
+              case IDX_SW_POS_BOTTOM: 
+                motor->setAcceleration(ACCEL);
+                motor->setMaxSpeed(target_velocity);
+                motor->moveTo(motor->currentPosition()-10000);
+                break;
+            }
+            break;
           case IDX_SW_POS_TOP:
-            motor->setAcceleration(ACCEL);
-            motor->setMaxSpeed(target_velocity);
-            motor->moveTo(motor->currentPosition()+10000);
-            break;
-
-          case IDX_SW_POS_MID: 
-            motor->setAcceleration(STOP_ACCEL);
-            motor->moveTo(motor->currentPosition());
-            break;
-
-          case IDX_SW_POS_BOTTOM: 
-            motor->setAcceleration(ACCEL);
-            motor->setMaxSpeed(target_velocity);
-            motor->moveTo(motor->currentPosition()-10000);
+            // Do nothing (as of now...)
             break;
         }
       }
