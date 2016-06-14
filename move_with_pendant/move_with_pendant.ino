@@ -71,7 +71,7 @@ void loop() {
 
         motor = motors + i;
         
-        switch (pendant.sw_pos(IDX_SW_STEP);) {
+        switch (pendant.sw_pos(IDX_SW_STEP)) {
 
           // In the down positition, move a defined number of steps and stop. 
           case IDX_SW_POS_BOTTOM:
