@@ -1,8 +1,8 @@
 #include <digitalWriteFast.h>
 
-#define N_PULSES 50
-int8_t pins[] = {3,4,5,6,7,8,9,10,11};
-
+int8_t pins[] = {3,5};
+int32_t n_pulses[sizeof pins] = {100071, 204400};
+int32_t pin_vals[sizeof pins];
 void setup() {
 
   for(int i =0; i < sizeof pins; i++){
@@ -11,22 +11,15 @@ void setup() {
   }
 }
 
-int32_t tick = N_PULSES;
+int8_t i;
 void loop() {
 
-  tick--;  
-  for(int8_t i = 0; i < sizeof pins; i ++){
-    digitalWrite(pins[i], HIGH);
-  }
-  delayMicroseconds(16);
-  for(int8_t i = 0; i < sizeof pins; i ++){
-    digitalWrite(pins[i], LOW);
-  }
-  delayMicroseconds(16);
-  if (tick == 0) {
-    for(int i = 0; i < sizeof pins; i ++){
-      digitalWrite(pins[i], LOW);
-    }
-    while(true);
+  i = random(0, (sizeof pins)+1);
+  if (pin_vals[i] < n_pulses[i]) {
+    digitalWriteFast2(pins[i], HIGH);
+    delayMicroseconds(4);
+    digitalWriteFast2(pins[i], LOW);
+    delayMicroseconds(4);
+    pin_vals[i]++;
   }
 }

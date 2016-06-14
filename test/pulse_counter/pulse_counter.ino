@@ -6,7 +6,6 @@ volatile int32_t count1 = 0;
 volatile int32_t count2 = 0;
 
 void setup() {
-
   attachInterrupt(digitalPinToInterrupt(COUNTER_PIN_1), count_pulse_1, RISING);
   attachInterrupt(digitalPinToInterrupt(COUNTER_PIN_2), count_pulse_2, RISING);
 
