@@ -41,7 +41,7 @@ void loop() {
   
   if (micros() > next_analog_read ) {
       analogVal = analogRead(POT_PIN); // 109.5 us - Replace with 555 timer ADC?
-      delay_time = map( abs(analogVal-512), 0, 512, MAX_DEL, 0);
+      delay_time = map(abs(analogVal-512), 0, 512, MAX_DEL, 0);
 
       if (delay_time < 5) {
         delay_time = 0;
