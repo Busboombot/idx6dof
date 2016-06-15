@@ -23,7 +23,7 @@ int switch_pos_velocities[3];
 
 int8_t sw_state;
 int8_t bounce;
-#define SET_MOVE_STPS 1000
+#define SET_MOVE_STPS 50
 
 // NOTE! These only work on the SAM3X, or possibly other ARM Chips, but certainly the Arduino DUE. 
 #define fastSet(pin) (digitalPinToPort(pin)->PIO_SODR |= digitalPinToBitMask(pin) ) 
@@ -42,9 +42,9 @@ AccelStepper motors[] = {
 
 void setup() {
 
-  switch_pos_velocities[IDX_SW_POS_TOP] = 2200;
-  switch_pos_velocities[IDX_SW_POS_MID] = 1000;
-  switch_pos_velocities[IDX_SW_POS_BOTTOM] = 300;
+  switch_pos_velocities[IDX_SW_POS_TOP] = 4400;
+  switch_pos_velocities[IDX_SW_POS_MID] = 2000;
+  switch_pos_velocities[IDX_SW_POS_BOTTOM] = 600;
 
   pendant.begin();
 
