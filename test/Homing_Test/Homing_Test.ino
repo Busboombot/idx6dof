@@ -1,7 +1,24 @@
+#include <Encoder.h>
 
-uint8_t indexTrig;
+Encoder encOne(2, 3);
+
+#define STEP_PIN 6
+#define DIR_PIN 7
 #define LIMIT_PIN 5
+
+#define QUAD_A 2
+#define QUAD_B 3
+
 #define BCK_LSH 100
+
+uint16_t encCount;
+uint16_t LimIndxDist;
+volatile uint8_t indexTrig;
+
+uint8_t quadDir;
+
+int8_t vel;
+uint8_t stepClk;
 
 void pciSetup(byte pin) {
     *digitalPinToPCMSK(pin) |= bit (digitalPinToPCMSKbit(pin));  // enable pin
@@ -14,11 +31,18 @@ ISR (PCINT1_vect) {
 }
 
 void setup() {
+
+  attachInterrupt(digitalPinToInterrupt(QUAD_A), QuadPulseA, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(QUAD_B), QuadPulseB, CHANGE);
+  
   for (uint8_t i=A0; i<=A5; i++) {
     pinMode(i, INPUT);
     digitalWrite(i,HIGH);
   }
   pciSetup(A0);
+
+  Serial.begin(115200);
+  findHome(1);
 }
 
 void loop() {
@@ -95,25 +119,61 @@ void findHome(uint8_t dir) { // Function Tailored for Elbow 1 Axis
   }
   
   indexTrig = 0;
-// Set Encoder Value to 0
+  encCount = 0; 
   
   while (distFound == 0) {
     switch (dir) {
       case 0:
         // Step CounterClockwise
-        // Read Encoder Value
+        encCount = encOne.read();
         if (indexTrig != 0) {
-          // Set d to Encoder Value
+          LimIndxDist = 
         }
         break;
       case 1:
         // Step Clockwise
-        // Read Encoder Value
+        encCount = encOne.read();
         if (indexTrig != 0) {
-          // Set d to Encoder Value
+          LimIndxDist = enc.read();
         }
         break;
     }
+  }
+}
+
+void step() {
+  if (stepClk >= abs(vel)) {
+    stepClk = 0;
+    digitalWrite(STEP_PIN, HIGH);
+    delayMicroseconds(4);
+    digitalWrite(STEP_PIN, LOW);
+  }
+  stepClk++;
+  if (vel > 0) {
+    digitalWrite(DIR_PIN, HIGH);
+  }
+  else if (vel < 0) {
+    digitalWrite(DIR_PIN, LOW);
+  }
+}
+
+uint8_t quadState;
+
+void QuadPulseA() {
+  if (quadState == 1 && digitalRead(QUAD_A) == HIGH) {
+    quadDir = 0;
+  }
+  if (digitalRead(QUAD_A) == HIGH) {
+    quadState = 0;
+  }
+}
+
+void QuadPulseB() {
+  if (quadState == 0 && digitalRead(QUAD_B) == HIGH) {
+    quadDir = 1;
+  }
+  if (digitalRead(QUAD_V) == HIGH) {
+    quadState = 1;
   }
 }
 
