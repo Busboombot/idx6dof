@@ -64,7 +64,7 @@ void setup() {
   encoder.state = 0;
   encoder.direction = 0;
   
-  vel = 5; // Set Velocity to 5 cycles per step
+  vel = 2; // Set Velocity to 5 cycles per step (cps)
   
   findHome(1);
 }
@@ -163,6 +163,7 @@ void findHome(uint8_t dir) { // Function Tailored for Elbow 1 Axis
   encoder.position = 0; 
   
   while (distFound == 0) {
+    Serial.println(encoder.position);
     switch (dir) {
       case 0:
         // Step CounterClockwise
@@ -184,7 +185,91 @@ void findHome(uint8_t dir) { // Function Tailored for Elbow 1 Axis
         break;
     }
   }
+  
   indexTrig = 0;
+  intLimVal = digitalRead(LIMIT_PIN);
+  state = intLimVal;
+  homeFound = 0;
+  
+  while (homeFound == 0) { // Loop until home is found
+    Serial.println("Homing");
+    switch (dir) {
+      case 0: // Counterclockwise Result
+        //=============================================================================
+        switch (state) {
+          case LOW:
+            // Step CounterClockwise
+            vel = abs(vel)*-1;
+            step();
+            if (digitalRead(LIMIT_PIN) == HIGH) {
+              // Stop Steps
+              homeFound = 1;
+            }
+            break;
+          case HIGH:
+            // Step Clockwise
+            vel = abs(vel);
+            step();
+            if (digitalRead(LIMIT_PIN) == LOW) {
+              for (int i = 0; i < BCK_LSH; i++) { // Continue stepping for a while to account for backlash
+                // Step Clockwise
+                vel = abs(vel);
+                step();
+              }
+              // Stop Steps
+              state = 2; // Go back for backlash
+            }
+            break;
+          case 2:
+            // Step CounterClockwise
+            vel = abs(vel)*-1;
+            step();
+            if (digitalRead(LIMIT_PIN) == HIGH) {
+              // Stop Steps
+              homeFound = 1;
+            }
+            break;
+        }
+        break;
+      case 1: // Clockwise Result
+        //=============================================================================
+        switch (state) {
+          case HIGH:
+            // Step Clockwise
+            vel = abs(vel);
+            step();
+            if (digitalRead(LIMIT_PIN) == LOW) {
+              // Stop Steps
+              homeFound = 1;
+            }
+            break;
+          case LOW:
+            // Step CounterClockwise
+            vel = abs(vel)*-1;
+            step();
+            if (digitalRead(LIMIT_PIN) == HIGH) {
+              for (int i = 0; i < BCK_LSH; i++) { // Continue stepping for a while to account for backlash
+                // Step CounterClockwise
+                vel = abs(vel)*-1;
+                step();
+              }
+              // Stop Steps
+              state = 2; // Go back for backlash
+            }
+            break;
+          case 2:
+            // Step Clockwise
+            vel = abs(vel);
+            step();
+            if (digitalRead(LIMIT_PIN) == LOW) {
+              // Stop Steps
+              homeFound = 1;
+            }
+            break;
+        }
+        break;
+    }
+  }
   Serial.println(LimIndxDist);
   Serial.println("Homing Complete");
 }
