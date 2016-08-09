@@ -23,7 +23,7 @@ int switch_pos_velocities[3];
 
 int8_t sw_state;
 int8_t bounce;
-#define SET_MOVE_STPS 500
+#define SET_MOVE_STPS 50
 
 // NOTE! These only work on the SAM3X, or possibly other ARM Chips, but certainly the Arduino DUE. 
 #define fastSet(pin) (digitalPinToPort(pin)->PIO_SODR |= digitalPinToBitMask(pin) ) 
@@ -42,18 +42,18 @@ AccelStepper motors[] = {
 
 void setup() {
 
-  switch_pos_velocities[IDX_SW_POS_TOP] = 550;
-  switch_pos_velocities[IDX_SW_POS_MID] = 250;
-  switch_pos_velocities[IDX_SW_POS_BOTTOM] = 75;
+  switch_pos_velocities[IDX_SW_POS_TOP] = 4400;
+  switch_pos_velocities[IDX_SW_POS_MID] = 2000;
+  switch_pos_velocities[IDX_SW_POS_BOTTOM] = 600;
 
   pendant.begin();
 
   for( int i = 0; i < NUM_AXES; i++){
     motors[i].setMaxSpeed(550);
     motors[i].setAcceleration(ACCEL);
+    motors[i].setMinPulseWidth(32);
 
   }
-
 
 }
 
@@ -78,6 +78,7 @@ void loop() {
             switch (pendant.sw_pos(axis_switches[i])) {
               case IDX_SW_POS_BOTTOM:
                 if (bounce == 0) {
+                  motor->setMaxSpeed(target_velocity);
                   motor->move(-1*SET_MOVE_STPS);
                   bounce = 1;
                 }
@@ -87,6 +88,7 @@ void loop() {
                 break;
               case IDX_SW_POS_TOP:
                 if (bounce == 0) {
+                  motor->setMaxSpeed(target_velocity);
                   motor->move(SET_MOVE_STPS);
                   bounce = 1;
                 }
@@ -98,6 +100,7 @@ void loop() {
           case IDX_SW_POS_MID:
             switch(pendant.sw_pos(axis_switches[i])){
               case IDX_SW_POS_TOP:
+                motor->setMaxSpeed(target_velocity);
                 motor->setAcceleration(ACCEL);
                 motor->moveTo(motor->currentPosition()+1000);
                 break;
@@ -107,7 +110,8 @@ void loop() {
                 motor->moveTo(motor->currentPosition());
                 break;
     
-              case IDX_SW_POS_BOTTOM: 
+              case IDX_SW_POS_BOTTOM:
+                motor->setMaxSpeed(target_velocity);
                 motor->setAcceleration(ACCEL);
                 motor->moveTo(motor->currentPosition()-1000);
                 break;
