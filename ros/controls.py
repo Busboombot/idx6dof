@@ -4,6 +4,8 @@ from serial import Serial
 
 class RobotControl:
 
+
+    # ESB: YOu don't need any of these declaraations if you set them in __init__
 	usedPorts=None
 	
 	contSer = None
@@ -18,6 +20,8 @@ class RobotControl:
 	keyValues = None
 	currentCommand = None
 	
+    # Defining this here will make it a class variable, a singleton. If thats
+    # not what you want, put the definition in __init__
 	context = Context()
 	
 	def query(self, ser, q):
@@ -100,6 +104,7 @@ class RobotControl:
 			self.send(self.roboSer, 'm 0 0 0 0 0 0 0') #To avoid terrible accidents.
 			print 'Interrupted.'
 
+    # ESB: Move __init__ to the top of the class
 	def __init__(self):
 		self.usedPorts = []
 		self.keyValues = [0]*17
