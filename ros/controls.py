@@ -19,6 +19,8 @@ class RobotControl:
 	
 	keyValues = None
 	currentCommand = None
+
+	lastCommand = 0
 	
     # Defining this here will make it a class variable, a singleton. If thats
     # not what you want, put the definition in __init__
@@ -53,7 +55,7 @@ class RobotControl:
 			elif self.roboSer == None and resp == 'stepper':
 				self.roboSer = ser
 				print "Found robot control at " + nde
-				self.send(ser, "ms 15000")
+				self.send(ser, "ms " + str(self.maxSpeed))
 			else:
 				continue
 			self.usedPorts.append(nde)
@@ -79,12 +81,14 @@ class RobotControl:
 		if kv[16] == 1: #Axis Mode
 			print 'Doing high-tech inverse kinematics!'
 		else: #Joint Mode
-			jointMotion = 'm ' + str(self.speed)
-			for i in range(2, 7):
-				jointMotion += " "+str(kv[i]*self.maxSpeed/self.updateRate)
+			jointMotion = 't ' + str(int(2000/self.updateRate)) #'t' command takes milliseconds.
+			for i in range(2, 8):
+				jointMotion += " "+str(kv[i]*self.speed)
 		self.currentCommand = jointMotion
 		
 	def sendCommands(self):
+		print "Last command sent {}s ago. ({})".format(time.time() - self.lastCommand, self.currentCommand)
+		self.lastCommand = time.time()
 		self.send(self.roboSer, self.currentCommand)
 		
 	def run(self):
@@ -97,11 +101,11 @@ class RobotControl:
 				if self.readController():
 					self.interpretCommand()
 					self.sendCommands()
-				elif (time.time()*self.updateRate)%1 < 1.0/self.updateRate:
+				elif time.time()%(1.0/self.updateRate) < 1.05*self.readRate:
 					self.sendCommands()
 				time.sleep(self.readRate)
 		except KeyboardInterrupt:
-			self.send(self.roboSer, 'm 0 0 0 0 0 0 0') #To avoid terrible accidents.
+			self.send(self.roboSer, 's') #To avoid terrible accidents.
 			print 'Interrupted.'
 
     # ESB: Move __init__ to the top of the class
@@ -109,10 +113,10 @@ class RobotControl:
 		self.usedPorts = []
 		self.keyValues = [0]*17
 		self.currentCommand = ""
-		self.maxSpeed = 700
+		self.maxSpeed = 15000
 		self.speed = 0
-		self.updateRate = 4 #Per second
-		self.readRate = 0.05 #Delay in seconds
+		self.updateRate = 1 #Per second
+		self.readRate = 0.1 #Delay in seconds
 	
 ctrl = RobotControl()
 ctrl.run()
