@@ -22,12 +22,9 @@ AccelStepper motors[] = {
 
 int max_speed = 500; // Configure with 'ms' command
 
-
-
 struct command cmd;
 
 
-bool accelerate = true; // Use acceleration
 
 struct xvt_max {
   float x;
@@ -112,8 +109,7 @@ void cmd_stop(const idxrobot::Command& cmd){
 }
 
 void cmd_move_abs(const idxrobot::Command& cmd){
-  accelerate = true;
-  
+ 
   struct xvt_max maxes = max_xvt(cmd, motors, max_speed);
   
   for (int i = 0; i < NUM_AXES; i++){
@@ -129,7 +125,7 @@ void cmd_move_abs(const idxrobot::Command& cmd){
 }
 
 void cmd_move_rel(const idxrobot::Command& cmd){
-    accelerate  = true;
+
 
     struct xvt_max maxes = max_xvt(cmd, motors, max_speed);
     
@@ -150,7 +146,6 @@ void cmd_move_time(const idxrobot::Command& cmd){
       // Param 0 is the time to move, in miliseconds. 
       // Params 1-6 are the % of max speed. Use negative numbers to run backwards
 
-      accelerate = false;
 
       float t = (float)cmd.common_arg / 1000.0 ;
 
