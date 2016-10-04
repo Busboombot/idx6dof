@@ -1,0 +1,29 @@
+
+For each step of the planner, the axis travels from x0 to x1 either in a target time, or at a target final velocity. 
+
+# Move with specified time
+
+Convert to specified velocity
+
+
+# Move with specified velocity v1
+
+Compute acceleration a
+
+if a > a_max:
+    Compute new v1 for a = a_max
+    
+    if v1 > v_max:
+        v1 = v_max
+    
+    t = 2*(x1-x0)/(v1-v0)
+    
+else if a < a_max:
+    Split in two
+    first segment: x1' = x0 + a_max*v1, v1' = v1
+    second seg: x1, v1
+    
+    
+When processing multiple axes, first find the axis with the longest run time, according to distance / v_max for that axis. Then compute time for that axis and use that time to calculate velocities for all other axes 
+
+The specified velocity is along the cartesian distance of   
