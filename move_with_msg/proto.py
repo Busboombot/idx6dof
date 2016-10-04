@@ -55,7 +55,11 @@ class Message(object):
         
         msg = list(self.sync_str) + [self.code, self.seq, self.directions] + self.ticks + self.steps
     
-        self.crc = s32tou(binascii.crc32(struct.pack(Message.msg_fmt[:-1], *msg)))
+        try:
+            self.crc = s32tou(binascii.crc32(struct.pack(Message.msg_fmt[:-1], *msg)))
+        except:
+            print msg
+            raise
     
         msg.append(self.crc) # Add checksum on
         

@@ -2,9 +2,7 @@
 #include <Arduino.h>
 #include <limits.h>
 #include "idx_command.h"
-#include "DueTimer.h"
-
-#include "CRC32.h"
+#include "bithacks.h"
 
 #define fastSet(pin) (digitalPinToPort(pin)->PIO_SODR |= digitalPinToBitMask(pin) ) 
 #define fastClear(pin) (digitalPinToPort(pin)->PIO_CODR |= digitalPinToBitMask(pin) )
@@ -28,29 +26,25 @@ int main(void) {
 
   Serial.print("Starting. message size:");Serial.println(sizeof(struct command));
   
-  int dwell = 4; // in us
-
-  pinMode(2, OUTPUT);
-  pinMode(3, OUTPUT);
-  pinMode(4, OUTPUT);
-  pinMode(5, OUTPUT);
-  pinMode(6, OUTPUT);
-  pinMode(7, OUTPUT);
+  int dwell = 4; // in us. Min dwell; actual is longer. 
   
   uint8_t active_axes = 0;
 
-  uint8_t pins[N_AXES] = {2,3,4,5,6,7};
-
+  uint8_t step_pins[N_AXES] = {2,4,6,8,10,12};
+  uint8_t dir_pins[N_AXES] = {3,5,7,9,11,13};
+  int32_t positions[N_AXES] = {0};
+  
   uint32_t now = micros();
   uint32_t last_high_tick_time[N_AXES] = {now};
-  uint32_t last_low_tick_time[N_AXES] = {now};
-  uint8_t pin_high[N_AXES] = {false};
-  
-  uint8_t axis_pins[N_AXES] = {2,3,4,5,6,7};
+
+  for(int i = 0; i < N_AXES; i++){
+    pinMode(step_pins[i], OUTPUT);
+    pinMode(dir_pins[i], OUTPUT);
+  }
   
   for (;;) {
     
-    
+
     cbuf.run();
 
     if (active_axes == 0 && msg != 0){
@@ -69,26 +63,33 @@ int main(void) {
       //Serial.print("Axis ");Serial.print(msg->seq);Serial.print(" ");Serial.print(steps[0]);Serial.print(" ");Serial.println(ticks[0]);
     }
 
+    for (int axis = 0; axis < N_AXES; axis ++){
+      fastClear(step_pins[axis]);
+    }
+
     active_axes = 0;
     for (int axis = 0; axis < N_AXES; axis ++){
       
       if (msg && msg->steps[axis] > 0 && ((unsigned long)(now - last_high_tick_time[axis])   > msg->ticks[axis])){ 
-        fastSet(pins[axis]);
+        if (B_IS_SET(msg->directions, axis)){
+          fastSet(dir_pins[axis]);
+          positions[axis]++;
+        } else {
+          fastClear(dir_pins[axis]);
+          positions[axis]--;
+        }
         last_high_tick_time[axis] +=  msg->ticks[axis];
-        last_low_tick_time[axis] = now;
-        pin_high[axis] = true;
-      }
-
-      if (pin_high[axis] && ((unsigned long)(now - last_low_tick_time[axis])  > STEP_DWELL)){ 
-        fastClear(pins[axis]);
         msg->steps[axis]--;
-        pin_high[axis] = false;
+        fastSet(step_pins[axis]);
+
       }
 
       if ( msg->steps[axis] > 0){
         active_axes ++;
       }
     }
+
+
   }
 
   return 0;
