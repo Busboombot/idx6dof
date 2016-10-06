@@ -7,7 +7,6 @@
 #define fastSet(pin) (digitalPinToPort(pin)->PIO_SODR |= digitalPinToBitMask(pin) ) 
 #define fastClear(pin) (digitalPinToPort(pin)->PIO_CODR |= digitalPinToBitMask(pin) )
 
-#define N_AXES 6
 #define STEP_DWELL 4
 
 int main(void) {
@@ -31,7 +30,7 @@ int main(void) {
   uint8_t active_axes = 0;
 
   uint8_t step_pins[N_AXES] = {2,4,6,8,10,12};
-  uint8_t dir_pins[N_AXES] = {3,5,7,9,11,13};
+  uint8_t dir_pins[N_AXES] =  {3,5,7,9,11,13};
   int32_t positions[N_AXES] = {0};
   
   uint32_t now = micros();
@@ -43,13 +42,14 @@ int main(void) {
   }
   
   for (;;) {
-    
 
+    cbuf.startLoop();
     cbuf.run();
-
+    
     if (active_axes == 0 && msg != 0){
-      cbuf.sendResponse(*msg, IDX_COMMAND_DONE );
-      //Serial.print("Done ");Serial.println(msg->seq);
+      cbuf.sendDone(*msg);
+      cbuf.resetLoopTimes();
+      cbuf.setPositions(positions);
       delete msg;
       msg = 0;
     }
@@ -60,7 +60,6 @@ int main(void) {
       for (int axis = 0; axis < N_AXES; axis ++){
         last_high_tick_time[axis] = now;
       }
-      //Serial.print("Axis ");Serial.print(msg->seq);Serial.print(" ");Serial.print(steps[0]);Serial.print(" ");Serial.println(ticks[0]);
     }
 
     for (int axis = 0; axis < N_AXES; axis ++){
@@ -88,8 +87,7 @@ int main(void) {
         active_axes ++;
       }
     }
-
-
+    cbuf.endLoop();
   }
 
   return 0;
