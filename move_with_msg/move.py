@@ -21,8 +21,10 @@ def setBit(int_type, offset):
     return(int_type | mask)
 
 
+
+
 seq = 0;
-with Proto('/dev/cu.usbmodemFD1421') as proto:
+with Proto('/dev/cu.usbmodemFD1431') as proto:
     while True:
         
         for freq in (100,200,300,200,100,0,
@@ -37,7 +39,7 @@ with Proto('/dev/cu.usbmodemFD1421') as proto:
                 ticks = steps = 0
             else:
                 ticks = int(1000000 / abs(freq))
-                steps = int(200000 / ticks) # .2 sec for every message
+                steps = int(2000000 / ticks) # .2 sec for every message
             
             seq += 1;
             msg = Command(seq, 10,  directions, [ticks]*use_axes+nulls, [steps]*use_axes+nulls)

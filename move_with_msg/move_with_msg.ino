@@ -31,25 +31,58 @@ int main(void) {
 
   uint8_t step_pins[N_AXES] = {2,4,6,8,10,12};
   uint8_t dir_pins[N_AXES] =  {3,5,7,9,11,13};
-  int32_t positions[N_AXES] = {0};
+
+  int32_t positions[N_AXES] = {0}; // Axis positions in steps
+  int32_t velocities[N_AXES] = {0}; // Axis velocities in steps / sec
+  int32_t intervals[N_AXES] = {0}; // Inter-step interval in microseconds
+  float accelerations[N_AXES] = {0}; // Accelerations in steps per sec^s
   
   uint32_t now = micros();
-  uint32_t last_high_tick_time[N_AXES] = {now};
+  uint32_t last_time[N_AXES] = {now};
 
   for(int i = 0; i < N_AXES; i++){
     pinMode(step_pins[i], OUTPUT);
     pinMode(dir_pins[i], OUTPUT);
   }
+
+  uint8_t work_step = 0;
   
   for (;;) {
 
     cbuf.startLoop();
+
+    switch (work_step++ & 0x03 ){
+      case 0: {
+
+        break;
+      }
+      case 1: {
+
+        break;
+      }
+      case 2: {
+
+        break;
+      }
+      case 3: {
+
+        break;
+      }
+    }
+    
     cbuf.run();
     
     if (active_axes == 0 && msg != 0){
       cbuf.sendDone(*msg);
       cbuf.resetLoopTimes();
       cbuf.setPositions(positions);
+
+      // The calculated velocities should be close to the target velocities, 
+      // but if they are off a bit, this will bring them back to what was commanded. 
+      for (int i = 0; i < N_AXES; i++){
+        velocities[i] = msg->velocities[i];
+      }
+      
       delete msg;
       msg = 0;
     }
@@ -58,7 +91,11 @@ int main(void) {
     if( cbuf.size() > 0 && msg == 0 ){
       msg = cbuf.getMessage();
       for (int axis = 0; axis < N_AXES; axis ++){
-        last_high_tick_time[axis] = now;
+        
+        last_time[axis] = now;
+
+        accelerations[axis] = float(velocities[axis] -  msg->velocities[axis])
+        
       }
     }
 
@@ -69,25 +106,31 @@ int main(void) {
     active_axes = 0;
     for (int axis = 0; axis < N_AXES; axis ++){
       
-      if (msg && msg->steps[axis] > 0 && ((unsigned long)(now - last_high_tick_time[axis])   > msg->ticks[axis])){ 
-        if (B_IS_SET(msg->directions, axis)){
+      if (msg && msg->steps[axis] > 0 && ((unsigned long)(now - last_time[axis])   > msg->ticks[axis])){ 
+        
+        if (velocities[axis] > 0){
           fastSet(dir_pins[axis]);
           positions[axis]++;
         } else {
           fastClear(dir_pins[axis]);
           positions[axis]--;
         }
-        last_high_tick_time[axis] +=  msg->ticks[axis];
+        
+        last_time[axis] +=  msg->ticks[axis];
         msg->steps[axis]--;
         fastSet(step_pins[axis]);
 
+        velocities[axis] += accelerations[axis]*msg->ticks[axis]
+        
       }
 
       if ( msg->steps[axis] > 0){
         active_axes ++;
       }
     }
+    
     cbuf.endLoop();
+
   }
 
   return 0;

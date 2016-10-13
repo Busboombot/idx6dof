@@ -20,39 +20,46 @@ class Command(object):
     COMMAND_POSITIONQUERY = 20
     
     sync_str = 'IDXC'
-    msg_fmt = '<4cHHi6H6HI'
+    msg_fmt = '<4cHH6f6H6HI'
     msg_header =  msg_fmt[:6]
     size = struct.calcsize(msg_fmt)
     
     
-    def __init__(self, seq, code,  directions, ticks, steps, crc=None, state = None):
+    def __init__(self, seq, code,  segment_time, accelerations, velocities, steps, crc=None, state = None):
         self.code = code
         self.seq = seq
-        self.directions = directions
-        self.ticks = ticks
+        self.segment_time = segment_time
+        self.velocities = velocities
         self.steps = steps
         self.crc = crc
         self.state = state
         
+        
+    class PopFront(object):
+        def __init__(self, p):
+            self._p = p
+
+        def __getitem__(self, n):
+            self._p, r = self._p[n:], self._p[:n]
+            return r
+
     @staticmethod
     def decode(data):
         
-        p = struct.unpack(Command.msg_fmt,data)
+        p = self.PopFront(struct.unpack(Command.msg_fmt,data))
         
-        code, seq, directions  = p[4:7]
-        ticks = p[7:13]
-        steps = p[13:19]
+        _ = p[4]
+        code, seq , segment_time = p[3]
+        accelerations = p[6]
+        velocities = p[6]
+        steps = p[6]
+        crc = p[1]
         
-        assert(len(ticks) == 6)
-        assert(len(steps) == 6)
-        
-        crc = p[19]
-        
-        return Command(seq, code, directions, ticks, steps, crc)
+        return Command(seq, code, accelerations, velocities, steps, crc)
         
     def encode(self):
         
-        msg = list(self.sync_str) + [self.code, self.seq, self.directions] + self.ticks + self.steps
+        msg = list(self.sync_str) + [self.code, self.seq, self.segment_time] + self.ticks + self.steps
     
         try:
             self.crc = s32tou(binascii.crc32(struct.pack(Command.msg_fmt[:-1], *msg)))
@@ -200,7 +207,6 @@ class Proto(object):
         baud = 1050000
         self.ser = serial.Serial(self.port, baud, timeout=1);
         
-
     def __enter__(self):
         self.rr = serial.threaded.ReaderThread(self.ser, ResponseReader )
         self.proto =  self.rr.__enter__()
@@ -212,6 +218,38 @@ class Proto(object):
         
     def write(self, data):
         self.proto.write(data)
+        
+    @staticmethod
+    def seg_dist_time(v0, x,t):
+        """Return parameters for a segment given the initial velocity, distance traveled, and transit time."""
+   
+        a = 2*(x-v0*t)/(t*t)
+
+        v1 = v0 + a*t
+
+        return abs(x), v0, v1, t, a
+
+    @staticmethod
+    def seg_velocity_time(v0,v1,t):
+        """ Return parameters for a segment given the initial velocity, final velocity, and transit time. """
+        a = (v1-v0)/t
+
+        x = a * (t**2) / 2
+
+        return abs(x), v0, v1, t, a
+
+    @staticmethod
+    def seg_velocity_dist(v0, v1, x):
+        """Return segment parameters given the initial velocity, final velocity, and distance traveled. """
+
+        if v0 != v1:
+            t = abs(2*x / (v1-v0))
+            a = (v1-v0)/t 
+        else:
+            t = abs(float(x)/float(v0))
+            a = 0
+
+        return abs(x), v0, v1, t, a
         
         
         
