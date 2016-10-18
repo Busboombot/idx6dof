@@ -1,8 +1,29 @@
 """Motion Planning"""
 
+from math import sqrt
+
+def sign(a): return (a>0) - (a<0)
+
+def seg_velocity_dist(v0, v1, x):
+    """Return segment parameters given the initial velocity, final velocity, and distance traveled. """
+
+    v0 = float(v0)
+    v1 = float(v1)
+    x = float(x)
+
+    if v0 != v1:
+        t = abs(2.*x / (v1+v0))
+        a = (v1-v0)/t 
+    else:
+        t = abs(x/v0)
+        a = 0
+
+    return abs(x), v0, v1, t, a
+    
+
 class JointVector(object):
 
-    def __init__(self,  x1, v1, axis = None, x0=None, v0=None):
+    def __init__(self,  x1, v1,  x0=None, v0=None, axis=None):
         
         self.axis = axis
         
@@ -83,88 +104,199 @@ class JointVector(object):
     def __repr__(self):
         
         return " {},{}->{},{}".format(self.x0, self.v0, selv.x1, self.v1)
-        
-
-        
-class TrajectoryVector(object):
+    
+class TrajectoryPoint(object):
     
     N_AXES = 6;
     
-    def __init__(self,  *joints, t=None, v=None, prior = None):
+    def __init__(self, joints=[], t=None, v=None):
         
-    
         self.v = v;
-        self.t = t;
+        self.t = t;            
         
-        if len(joints) == 1:
-            self.joints = joints[0]
-        else:
-            self.joints = joints
+        self.joints = [0]*self.N_AXES
+        
+        
+        self.prior = None
             
-    
-        self.max_distance = None
-        self.longest_axis = None
-    
-    
-                
-        if prior:
-            self.update_from_prior(p)
-                            
-    def update_from_prior(self, p):
-        
-        for ax in self.axes:
-            if ax:
-                ax.x0 = p[i].x1
-                ax.v0 = p[i].v1
-            else:
+        for i in range(self.N_AXES):
+            try:
+                self.joints[i] = joints[i]
+            except IndexError:
                 pass
+                    
+        if self.v is None and self.t is None:
+            self.v = 0
+            self.t = 0
+        elif self.v is not None and self.t is not None:
+            raise ValueError("Can't specify both t and v")
+              
         
     def __getitem__(self, i):
-        return self.joins[i]
+        return self.joints[i]
+    
+    
+    def calc_initial_interval_params(self,v0, a):
+        
+        v0 = float(v0)
+        a = float(a)
+        
+        if a == 0.:
+            
+            if v0 != 0:
+                cn  = 1000000. / v0
+            else:
+                cn = 0.
+                
+            n = 0.
+        elif v0 == 0.:
+            n = 0.
+            cn = 0.676 * sqrt(2.0 / abs(a)) * 1000000.0 * sign(a); # Equation 15
+        else:
+            n = ((v0 * v0) / (2.0 * abs(a))) # Equation 16
+            cn = 1000000. / v0
+            
+        if sign(a) != sign(v0): # Decelerating
+            n = -n
+            
+        return n, cn
+    
+    def set_prior(self, prior):
+        
+        self.prior = prior
+
+        for i in range(self.N_AXES):
+            if self.joints[i] is None:
+                self.joints[i] = prior.joints[i]
+        
+        
+        if self.v is not None and self.t is None:
+            _, _, _, self.t, _  = seg_velocity_dist(prior.v, self.v, self.length)
+
+        elif self.t is not None and self.v is None:
+            self.v =  self.length / self.t
+                
+
+    @property
+    def length(self):
+        """ Length of whole vector relative to the prior"""
+        from math import sqrt
+        
+        if not self.prior:
+            return 0
+        
+        return sqrt(sum( (a-b)**2 for a,b in zip(self.joints, self.prior.joints)))
+    
+    @property
+    def lengths(self):
+        """ Length of joiunts relative to the prior"""
+        from math import sqrt
+        
+        if not self.prior:
+            return 0
+        
+        return [ a-b for a,b in zip(self.joints, self.prior.joints) ]
     
     def split(self):
         
         pass
         
+        
+    def info_row(self):
+        return [self.t or 0, self.v or 0, self.length]+self.joints
+                
     def __repr__(self):
         
-        out = ''
-        for i in 
+        return "{:6.3f} {:6.3f} {:6.3f} {:6d} {:6d} {:6d} {:6d} {:6d} {:6d}".format(*self.info_row())
+            
         
-    
-
 class MotionPlanner(object):
     
+    def __init__(self, v_max, a_max, d_max):
     
-    def __init__(self, v_max, a_max):
-    
-        self.a_max = a_max
+        self.a_max = a_max # Max acceleration
+        self.d_max = d_max # Max deceleration
         self.v_max = v_max
         
         self.points = []
-        self.add_point(*([None]*TrajectoryVector.N_AXES))
+        self.velocities = []
+        
+        self.velocities.append([0]*TrajectoryPoint.N_AXES)
+        self.add_point(TrajectoryPoint([0,0,0,0,0,0], t = 0))
+        
     
         
-    def add_point(self, dt=None, v=None, *args):
+    def add_point(self, point):
         """Add a trajectory point"""
         
         from copy import copy
         
-        for i, a in enumerate(args):
-            if isinstance(a, tuple):
-                jv = JointVector(*a, axis=i)
-            elif isinstance(a, JointVector):
-                jv = copy(a)
-                jv.axis = i
+        if len(self.points):
+            point.set_prior(self.points[-1])
+            
+            self.velocities.append( [ (tj-pj)/point.t for tj, pj in 
+                                    zip(point.joints, self.points[-1].joints) ] )
+            
+        self.points.append(point)
+        
+                                 
+    @property  
+    def split_velocities(self):
+
+        yield  self.velocities[0]
+        
+        for i in range(1, len(self.velocities)):
+            tv = self.velocities[i]
+            pv = self.velocities[i-1]
+            
+            
+            # Check for changes in acceleration, which will require a 
+            # split. 
+            
+            splits = []
+            
+            for j, (tjv, pjv) in enumerate(zip(tv, pv)):
+                if tjv != 0 and pjv !=0 and sign(tjv) != sign(pjv):
+                    
+                    print '!!!', j, tjv, pjv
+                    
+                    # Calculate where the change in acceleration happens, 
+                    # where the velocity is zero. 
+                    
+                    # Decelerate from v0 to 0
+                    t1 = pjv / self.d_max # Decelerate as fast as possible
+                    x1 = .5 *self.d_max*(t1**2) + pjv*t1
+                    
+                    assert x1 < abs(self.points[i].lengths[j]), (x1, self.points[i].lengths[j])
+                    assert t1 < self.points[i].t
+                    
+                    t2 = self.points[i].t - t1
+                    x2 = self.points[i][j] - x1
+                    
+                    splits.append( (j, t1, x1, t2, x2) )
+                    
+            
+            if not splits:
+                yield tv
             else:
-                jv = JointVector(x1=None, v1=None);
-            
-            
-        self.points.append(TrajectoryVector());
-            
-            
+                print splits
+                yield tv
+                
+    @property
+    def accelerations(self):
+        
+        yield [0]*TrajectoryPoint.N_AXES
+        
+        for i in range(1, len(self.velocities)):
+            tv = self.velocities[i]
+            pv = self.velocities[i-1]
+        
+            yield [ (tjv-pjv)/self.points[i].t for tjv, pjv in zip(tv, pv)]
         
         
-        
+
     
+    
+    
+
     

@@ -223,7 +223,11 @@ class Proto(object):
     def seg_dist_time(v0, x,t):
         """Return parameters for a segment given the initial velocity, distance traveled, and transit time."""
    
-        a = 2*(x-v0*t)/(t*t)
+        v0 = float(v0)
+        x = float(x)
+        t = float(t)
+        
+        a = 2.*(x-v0*t)/(t*t)
 
         v1 = v0 + a*t
 
@@ -232,9 +236,14 @@ class Proto(object):
     @staticmethod
     def seg_velocity_time(v0,v1,t):
         """ Return parameters for a segment given the initial velocity, final velocity, and transit time. """
+        
+        v0 = float(v0)
+        v1 = float(v1)
+        x = float(t)
+        
         a = (v1-v0)/t
 
-        x = a * (t**2) / 2
+        x = a * (t**2) / 2.
 
         return abs(x), v0, v1, t, a
 
@@ -242,11 +251,15 @@ class Proto(object):
     def seg_velocity_dist(v0, v1, x):
         """Return segment parameters given the initial velocity, final velocity, and distance traveled. """
 
+        v0 = float(v0)
+        v1 = float(v1)
+        x = float(x)
+
         if v0 != v1:
-            t = abs(2*x / (v1-v0))
+            t = abs(2.*x / (v1+v0))
             a = (v1-v0)/t 
         else:
-            t = abs(float(x)/float(v0))
+            t = abs(x/v0)
             a = 0
 
         return abs(x), v0, v1, t, a

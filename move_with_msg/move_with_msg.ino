@@ -17,7 +17,6 @@ int main(void) {
   delay(1);
   USBDevice.attach(); // Initialize the SerialUSB device. 
 
-  //UART->UART_BRGR = 5; // 84000000 / 16 * x = BaudRate (write x into UART_BRGR)  5 -> 1050000
   Serial.begin(115200); // For debugging
   SerialUSB.begin(1050000); // For ros messages
  
@@ -50,25 +49,6 @@ int main(void) {
   for (;;) {
 
     cbuf.startLoop();
-
-    switch (work_step++ & 0x03 ){
-      case 0: {
-
-        break;
-      }
-      case 1: {
-
-        break;
-      }
-      case 2: {
-
-        break;
-      }
-      case 3: {
-
-        break;
-      }
-    }
     
     cbuf.run();
     

@@ -1,27 +1,21 @@
 
-from planning import JointVector, MotionPlanner
+from planning import JointVector, MotionPlanner, TrajectoryPoint
+from tabulate import tabulate
 
-ap = JointVector(axis=0, x0=0, v0=10, x1=100, v1=30)
-
-print ap.distance
-
-p = ap.amax_split(4,30)
-print  p
-assert p[0] == 5
-assert p[1] == 30
-assert p[2] == 100
-assert p[3] == 0
-
-p = ap.amax_split(4,20)
-print  p
-assert p[0] == 5.625
-assert p[1] == 20
-assert p[2] == 37.5
-assert p[3] == 62.5
+mp = MotionPlanner(100000,500000, 1000000)
+mp.add_point(TrajectoryPoint([1000], .1))
+mp.add_point(TrajectoryPoint([2000], .1))
+mp.add_point(TrajectoryPoint([4000], .1))
+mp.add_point(TrajectoryPoint([0], .1))
 
 
-null_ax = JointVector(x0=0,v0=0,x1=0,v1=0)
+print "Positions"
+print tabulate(  [ p.info_row() for p in mp.points] , headers = "T V L J0 J1 J2 J3 J4 J5".split())
 
-mp = MotionPlanner(30,5);
+print "\nVelocities"
+print tabulate( mp.velocities, headers = "J0 J1 J2 J3 J4 J5".split())
 
+print "\nsplit_velocities"
+p
+print tabulate( mp.split_velocities, headers = "J0 J1 J2 J3 J4 J5".split())
 

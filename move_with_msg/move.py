@@ -3,7 +3,6 @@ from __future__ import division
 import time 
 from proto import Proto, Command, Response
 
-
 code = 10
 
 steps = [1,2,3,4,5,6]
@@ -15,12 +14,9 @@ print "Response size: ", Response.size
 use_axes = 6
 nulls = [0]*(6-use_axes)
 
-
 def setBit(int_type, offset):
     mask = 1 << offset
     return(int_type | mask)
-
-
 
 
 seq = 0;
