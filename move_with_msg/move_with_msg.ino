@@ -2,16 +2,26 @@
 #include <Arduino.h>
 #include <limits.h>
 #include "idx_command.h"
+#include "idx_stepper.h"
 #include "bithacks.h"
 
 #define fastSet(pin) (digitalPinToPort(pin)->PIO_SODR |= digitalPinToBitMask(pin) ) 
 #define fastClear(pin) (digitalPinToPort(pin)->PIO_CODR |= digitalPinToBitMask(pin) )
 
-#define STEP_DWELL 4
+void toggle(int pin){
 
-int main(void) {
-  struct command * msg = 0;
+  if (digitalRead(pin)){
+    fastClear(pin);
+  } else {
+    fastSet(pin);
+  }
   
+}
+
+/*
+ * Initialize the board, serial ports, etc. 
+ */
+void init_board(){
   watchdogSetup();
   init(); // Initialize the board, probably
   delay(1);
@@ -19,94 +29,96 @@ int main(void) {
 
   Serial.begin(115200); // For debugging
   SerialUSB.begin(1050000); // For ros messages
+
+  // Diagnostics
+  pinMode(14, OUTPUT); // Loop tick
+  pinMode(15, OUTPUT); // message tick
+  
+}
+
+
+int main(void) {
+  
+  struct command * msg = 0;
+  uint32_t now;
+  uint8_t active_axes = 0;
+
+  init_board();
  
   IDXCommandBuffer cbuf(SerialUSB);
 
+  IDXStepper steppers[] = {
+    IDXStepper(2,3), 
+    IDXStepper(4,5), 
+    IDXStepper(6,7), 
+    IDXStepper(8,9), 
+    IDXStepper(10,11), 
+    IDXStepper(12,13), 
+  };
+
+
   Serial.print("Starting. message size:");Serial.println(sizeof(struct command));
-  
-  int dwell = 4; // in us. Min dwell; actual is longer. 
-  
-  uint8_t active_axes = 0;
-
-  uint8_t step_pins[N_AXES] = {2,4,6,8,10,12};
-  uint8_t dir_pins[N_AXES] =  {3,5,7,9,11,13};
-
-  int32_t positions[N_AXES] = {0}; // Axis positions in steps
-  int32_t velocities[N_AXES] = {0}; // Axis velocities in steps / sec
-  int32_t intervals[N_AXES] = {0}; // Inter-step interval in microseconds
-  float accelerations[N_AXES] = {0}; // Accelerations in steps per sec^s
-  
-  uint32_t now = micros();
-  uint32_t last_time[N_AXES] = {now};
-
-  for(int i = 0; i < N_AXES; i++){
-    pinMode(step_pins[i], OUTPUT);
-    pinMode(dir_pins[i], OUTPUT);
-  }
-
-  uint8_t work_step = 0;
   
   for (;;) {
 
-    cbuf.startLoop();
-    
-    cbuf.run();
-    
+    toggle(14);
+
+    cbuf.startLoop(); // Start diagnostic times. 
+
+    // Load a byte from the serial port and possibly process
+    // add a completed message to the queue. 
+    cbuf.run(); 
+
+    /*
+     * All of the axes have finished so clear out the message 
+     */
     if (active_axes == 0 && msg != 0){
       cbuf.sendDone(*msg);
       cbuf.resetLoopTimes();
-      cbuf.setPositions(positions);
+      //cbuf.setPositions(positions);
 
-      // The calculated velocities should be close to the target velocities, 
-      // but if they are off a bit, this will bring them back to what was commanded. 
-      for (int i = 0; i < N_AXES; i++){
-        velocities[i] = msg->velocities[i];
-      }
-      
       delete msg;
       msg = 0;
     }
 
-    now = micros();
+    /*
+     * If we have messages in the queue, and there is no message in progress, 
+     * get the message and start working on it. 
+     */
+    
     if( cbuf.size() > 0 && msg == 0 ){
+      toggle(15);
       msg = cbuf.getMessage();
-      for (int axis = 0; axis < N_AXES; axis ++){
-        
-        last_time[axis] = now;
-
-        accelerations[axis] = float(velocities[axis] -  msg->velocities[axis])
-        
-      }
-    }
-
-    for (int axis = 0; axis < N_AXES; axis ++){
-      fastClear(step_pins[axis]);
-    }
-
-    active_axes = 0;
-    for (int axis = 0; axis < N_AXES; axis ++){
+  
+      Serial.print(msg->code); Serial.print(" ");
+      Serial.print(msg->seq); Serial.print(" ");
+      Serial.print(msg->crc); Serial.println(" ");
       
-      if (msg && msg->steps[axis] > 0 && ((unsigned long)(now - last_time[axis])   > msg->ticks[axis])){ 
-        
-        if (velocities[axis] > 0){
-          fastSet(dir_pins[axis]);
-          positions[axis]++;
-        } else {
-          fastClear(dir_pins[axis]);
-          positions[axis]--;
-        }
-        
-        last_time[axis] +=  msg->ticks[axis];
-        msg->steps[axis]--;
-        fastSet(step_pins[axis]);
-
-        velocities[axis] += accelerations[axis]*msg->ticks[axis]
-        
+      
+      for (int axis = 0; axis < N_AXES; axis ++){
+        steppers[axis].setParams(msg->n[axis], msg->cn[axis], msg->stepLeft[axis]);
       }
+    }
 
-      if ( msg->steps[axis] > 0){
-        active_axes ++;
+    /*
+     * Clear all of the pins, so setting a pin actually results in a
+     * transition
+     */
+    for (int axis = 0; axis < N_AXES; axis ++){
+      steppers[axis].clearStep();
+    }
+
+    /*
+     * Iterate over all of the axes and step them when their time comes up. 
+     */
+    active_axes = 0;
+    now = micros();
+    for (int axis = 0; axis < N_AXES; axis ++){
+
+      if(steppers[axis].step(now)){
+         active_axes ++;
       }
+      
     }
     
     cbuf.endLoop();

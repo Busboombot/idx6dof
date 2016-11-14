@@ -20,7 +20,14 @@ class Command(object):
     COMMAND_POSITIONQUERY = 20
     
     sync_str = 'IDXC'
-    msg_fmt = '<4cHH6f6H6HI'
+    msg_fmt = ('<4c'+ # Sync code "IDXC"
+              'H'+ # code
+              'H'+ # seq
+              'I'+ # segment_time
+              '6l'+ # n
+              '6l'+ # steps left
+              '6f'+  # cn
+              'I'+ # CRC )
     msg_header =  msg_fmt[:6]
     size = struct.calcsize(msg_fmt)
     
@@ -83,7 +90,13 @@ class Response(object):
     RESPONSE_DONE = 2 
     
     sync_str = 'IDXC'
-    msg_fmt = '<4cHH6H6i6hi'
+    msg_fmt = ('<4c'+
+                'H'+
+                'H'+
+                '6H'+
+                '6i'+
+                '6h'+
+                'I' )
     msg_header =  msg_fmt[:6]
     size = struct.calcsize(msg_fmt)
     

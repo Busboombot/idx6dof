@@ -9,10 +9,8 @@ class SimSegment(object):
     def __init__(self, v0, v1, x):
         """Return segment parameters given the initial velocity, final velocity, and distance traveled. """
 
-
         if sign(v0) and sign(v1) and not ( sign(v0) == sign(v1)):
             raise Exception("The velocity trajectory cannot cross zero.")
-
 
         #Each segment must have a consistent, single-valued accceleration
         t = abs(2.* float(x) / float(v1+v0))
@@ -23,11 +21,13 @@ class SimSegment(object):
             n = 0
         elif v0 == 0:
             n = 0 
-            cn = 0.676 * sqrt(2.0 / abs(a)) * 1000000.0 * sign(a); # Equation 15
+            cn = 0.676 * sqrt(2.0 / abs(a)) * 1000000.0 * sign(a); # c0 in Equation 15
         else:
             n = ((v0 * v0) / (2.0 * abs(a))) # Equation 16
             cn = 1000000. / v0
             
+        # If n is positive, there is a non zero velocity and we are accelerating
+        # If it is negative, there is a non zero velocity and we are decelerating 
         if sign(a) != sign(v0): # Decelerating
             n = -n
             
@@ -44,8 +44,10 @@ class SimSegment(object):
 
     def next_delay(self):
 
+        """Call this after each step to compute the delay to the next step"""
+
         if self.a != 0:
-            self.cn = self.cn - ((2.0 * self.cn) / ((4.0 * self.n) + 1));  # Equation 13 
+            self.cn = self.cn - ( (2.0 * self.cn) / ((4.0 * self.n) + 1));  # Equation 13 
             
         self.n += 1
         self.xn += 1
@@ -56,7 +58,7 @@ class SimSegment(object):
         
         
     def __iter__(self):
-        yield self.tn,self.cn, self.xn
+        yield self.tn,self.cn, self.n
         self.n += 1
         while True:
             self.next_delay()

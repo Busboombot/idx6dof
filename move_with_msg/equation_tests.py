@@ -2,7 +2,7 @@
 from math import sqrt
 from tabulate import tabulate
 from proto import Proto
-from stepsegments import StepSegment
+from stepsegments import SimSegment
 
 
 def pv(x, v0, v1, t, a):
@@ -16,7 +16,7 @@ def vtx(x, v0, v1, t, a):
 def compare(v0, v1, x):
     (x, v0, v1, t, a) = Proto.seg_velocity_dist(v0, v1, x)
    
-    ss = StepSegment(v0, v1, x).runOut()
+    ss = SimSegment(v0, v1, x).runOut()
 
     def almost_equal(v1, v2):
         return abs((float(v1)-float(v2)) / v1) < .1
@@ -28,32 +28,6 @@ def compare(v0, v1, x):
     else:
         print 'OK: Actual  :',ss
 
-if False:
-    pv(*Proto.seg_dist_time(0,1200,4))
-    pv(*Proto.seg_dist_time(0,-1200,4))
-    pv(*Proto.seg_dist_time(600,1200,4))
-    pv(*Proto.seg_dist_time(-600,-1200,4))
-
-    pv(*Proto.seg_dist_time(-600,1200,4))
-    pv(*Proto.seg_dist_time(600,-1200,4))
-    print '---'
-    pv(*Proto.seg_velocity_time(0,1200,4))
-    pv(*Proto.seg_velocity_time(0,-1200,4))
-    pv(*Proto.seg_velocity_time(1200,0,4))
-    pv(*Proto.seg_velocity_time(-1200,0,4))
-    print '---'
-    pv(*Proto.seg_velocity_time(600,600,4))
-    pv(*Proto.seg_velocity_time(-600,-600,4))
-    pv(*Proto.seg_velocity_time(600,-600,4))
-    pv(*Proto.seg_velocity_time(-600,600,4))
-    print '---'
-    pv(*Proto.seg_velocity_dist(600,600,2400))
-    pv(*Proto.seg_velocity_dist(-600,-600,2400))
-    pv(*Proto.seg_velocity_dist(600,-600,2400))
-    pv(*Proto.seg_velocity_dist(-600,600,2400))
-    print '---'
-    
-if True:
     
     compare(600,600,2400)
     compare(-600,-600,2400)  
