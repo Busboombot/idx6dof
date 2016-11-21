@@ -86,14 +86,21 @@ class TestPoints(unittest.TestCase):
         
         x = 1000
         
+        
+        def pr(p):
+            print "T:{:6.2f} X:{:8.2f} A:{:8.2f} {:10.2f}->{:10.2f}->{:10.2f}" \
+                    .format(p.abs_t0,p.abs_x0[0],p.a[0], p.v0[0],p.x[0], p.v1[0])
+        
+        pr(p)
+        
         for i in range(10):
  
             p = p.move(5,[x])
             x = -x
             
             for s in p.yield_splits(500):
-                print '----', s.abs_t0, s.abs_x0
-                print s
+                #print '----', s.abs_t0, s.abs_x0
+                pr(s)
 
        
     

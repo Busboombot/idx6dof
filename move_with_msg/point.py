@@ -20,7 +20,7 @@ class TrajectoryPoint(object):
         self.a = [0.]*self.N_AXES
 
         # Absolute time and position at the start of the point. 
-        self.abs_t0 = abs_t0
+        self.abs_t0 = float(abs_t0)
         self.abs_x0 = abs_x0 if abs_x0 is not None else [0.]*self.N_AXES
 
         for i in range(self.N_AXES):
@@ -167,12 +167,18 @@ class TrajectoryPoint(object):
         """ Return a new point, with an initial velocity of this points final velocity, 
         and the given displacement"""
         
-        return  TrajectoryPoint(t, x=x, v0=self.v1, v1=v1, abs_x0=self.abs_x0+x, abs_t0=self.abs_t0+t )
+        abs_x = [ax+xpp for ax, xpp in zip(self.abs_x0, self.x)]
+        
+        return  TrajectoryPoint(t, x=x, v0=self.v1, v1=v1, abs_x0=abs_x, abs_t0=self.abs_t0+t )
         
     def run(self, t, v1=[]):
         """Create a new point with a path from this point to the new velocities in time t"""
         
-        return self.move(t, x=[ .5 * (v0i+v1i) * t for v0i, v1i in zip(self.v1, v1) ], v1=v1)
+        x= [.5 * (v0i+v1i) * t for v0i, v1i in zip(self.v1, v1) ]
+        
+        abs_x = [ax+xpp for ax, xpp in zip(self.abs_x0, self.x)]
+        
+        return self.move(t, x=x, v1=v1, abs_x0=abs_x, abs_t0=self.abs_t0+t )
         
     
     
