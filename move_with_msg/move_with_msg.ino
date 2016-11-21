@@ -8,11 +8,15 @@
 #define fastSet(pin) (digitalPinToPort(pin)->PIO_SODR |= digitalPinToBitMask(pin) ) 
 #define fastClear(pin) (digitalPinToPort(pin)->PIO_CODR |= digitalPinToBitMask(pin) )
 
+int togglepins[56] = {0};
+
 void toggle(int pin){
 
-  if (digitalRead(pin)){
+  if (togglepins[pin]){
+    togglepins[pin] = 0;
     fastClear(pin);
   } else {
+    togglepins[pin] = 1;
     fastSet(pin);
   }
   
@@ -47,32 +51,36 @@ int main(void) {
  
   IDXCommandBuffer cbuf(SerialUSB);
 
-  IDXStepper steppers[] = {
+  IDXStepper steppers[N_AXES] = {
     IDXStepper(2,3), 
     IDXStepper(4,5), 
     IDXStepper(6,7), 
     IDXStepper(8,9), 
     IDXStepper(10,11), 
-    IDXStepper(12,13), 
+    IDXStepper(12,13)
   };
 
+  Serial.print("Command size :");Serial.println(sizeof(struct command));
+  Serial.print("Response size:");Serial.println(sizeof(struct response));
 
-  Serial.print("Starting. message size:");Serial.println(sizeof(struct command));
-  
+
   for (;;) {
 
     toggle(14);
+
 
     cbuf.startLoop(); // Start diagnostic times. 
 
     // Load a byte from the serial port and possibly process
     // add a completed message to the queue. 
     cbuf.run(); 
-
+   
     /*
      * All of the axes have finished so clear out the message 
      */
+    
     if (active_axes == 0 && msg != 0){
+      Serial.print("Clear message ");
       cbuf.sendDone(*msg);
       cbuf.resetLoopTimes();
       //cbuf.setPositions(positions);
@@ -80,37 +88,41 @@ int main(void) {
       delete msg;
       msg = 0;
     }
-
+    
+ 
     /*
      * If we have messages in the queue, and there is no message in progress, 
      * get the message and start working on it. 
      */
+
     
     if( cbuf.size() > 0 && msg == 0 ){
-      toggle(15);
+     
       msg = cbuf.getMessage();
-  
+      Serial.print("Recv message: ");
       Serial.print(msg->code); Serial.print(" ");
       Serial.print(msg->seq); Serial.print(" ");
       Serial.print(msg->crc); Serial.println(" ");
-      
       
       for (int axis = 0; axis < N_AXES; axis ++){
         steppers[axis].setParams(msg->n[axis], msg->cn[axis], msg->stepLeft[axis]);
       }
     }
-
+    
     /*
      * Clear all of the pins, so setting a pin actually results in a
      * transition
      */
+    
     for (int axis = 0; axis < N_AXES; axis ++){
       steppers[axis].clearStep();
     }
+    
 
     /*
      * Iterate over all of the axes and step them when their time comes up. 
      */
+
     active_axes = 0;
     now = micros();
     for (int axis = 0; axis < N_AXES; axis ++){
@@ -120,7 +132,7 @@ int main(void) {
       }
       
     }
-    
+
     cbuf.endLoop();
 
   }

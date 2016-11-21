@@ -1,6 +1,6 @@
 from planning import MotionPlanner, TrajectoryPoint
 from tabulate import tabulate
-from proto import Proto
+from proto import Proto, Command, Response
 from stepsegments import SimSegment
 
 import unittest
@@ -80,6 +80,23 @@ class TestPoints(unittest.TestCase):
         print(p)
     
     
+    def test_gen_params(self):
+        
+        p = TrajectoryPoint(0,[0])
+        
+        x = 1000
+        
+        for i in range(10):
+ 
+            p = p.move(5,[x])
+            x = -x
+            
+            for s in p.yield_splits(500):
+                print '----', s.abs_t0, s.abs_x0
+                print s
+
+       
+    
     def test_joy(self):
         
         from joystick import Joystick
@@ -98,7 +115,27 @@ class TestPoints(unittest.TestCase):
                 p = p.run(dt, v1=e)
                 print p
             
-     
+    def test_messages(self):
+        import time
+        
+        print (Command.size)
+        print (Response.size)
+        
+        null_axes = [0]*6
+        
+        with Proto('/dev/cu.usbmodemFD1431') as proto:
+            for i in range(10):
+        
+                msg = Command(10, i, 3*1, null_axes, null_axes, null_axes)
+                proto.write(msg)
+                print(msg)
+
+                if len(proto.sent) > 5:
+                    while len(proto.sent) > 2:
+                        time.sleep(.01)  
+                else:
+                    time.sleep(0.1)
+        
     
     def x_test_trajectory(self):
         mp = MotionPlanner(100000,500000, 1000000)

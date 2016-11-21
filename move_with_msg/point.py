@@ -11,13 +11,17 @@ class TrajectoryPoint(object):
     
     N_AXES = 6;
     
-    def __init__(self, t, x=[], v0 = [], v1=[]):
+    def __init__(self, t, x=[], v0 = [], v1=[], abs_t0=0, abs_x0=None):
         
         self.t = float(t);    
         self.x = [0.]*self.N_AXES
         self.v0 = [0.]*self.N_AXES
         self.v1 = [0.]*self.N_AXES
         self.a = [0.]*self.N_AXES
+
+        # Absolute time and position at the start of the point. 
+        self.abs_t0 = abs_t0
+        self.abs_x0 = abs_x0 if abs_x0 is not None else [0.]*self.N_AXES
 
         for i in range(self.N_AXES):
             try:
@@ -110,9 +114,11 @@ class TrajectoryPoint(object):
         # Remaining x
         xr = [x0 - xpp for x0, xpp in zip(self.x, xp)]
 
+        abs_x = [ax+xpp for ax, xpp in zip(self.abs_x0, xp)]
+
         return (
-            TrajectoryPoint(t,        x=xp, v0=self.v0, v1= vp),
-            TrajectoryPoint(self.t-t, x=xr, v0=vp)
+            TrajectoryPoint(t,        x=xp, v0=self.v0, v1= vp, abs_x0=self.abs_x0, abs_t0=self.abs_t0),
+            TrajectoryPoint(self.t-t, x=xr, v0=vp, abs_x0=abs_x,abs_t0=self.abs_t0+t)
             )
             
     def yield_splits(self, decel=None):
@@ -154,14 +160,14 @@ class TrajectoryPoint(object):
                 break
     
     def clone(self):
-        return TrajectoryPoint(self.t, self.x, self.v)
+        return TrajectoryPoint(self.t, self.x, self.v, abs_x0=self.abs_x0, abs_t0=abs_t0)
     
     
     def move(self, t, x=[], v1=[]):
         """ Return a new point, with an initial velocity of this points final velocity, 
         and the given displacement"""
         
-        return  TrajectoryPoint(t, x=x, v0=self.v1, v1=v1 )
+        return  TrajectoryPoint(t, x=x, v0=self.v1, v1=v1, abs_x0=self.abs_x0+x, abs_t0=self.abs_t0+t )
         
     def run(self, t, v1=[]):
         """Create a new point with a path from this point to the new velocities in time t"""

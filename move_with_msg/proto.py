@@ -24,20 +24,25 @@ class Command(object):
               'H'+ # code
               'H'+ # seq
               'I'+ # segment_time
-              '6l'+ # n
+              '6l'+ # Acceleration step number
               '6l'+ # steps left
-              '6f'+  # cn
-              'I'+ # CRC )
+              '6f'+  # cn, interval times
+              'I') # CRC )
     msg_header =  msg_fmt[:6]
     size = struct.calcsize(msg_fmt)
     
     
-    def __init__(self, seq, code,  segment_time, accelerations, velocities, steps, crc=None, state = None):
+    def __init__(self, seq, code,  segment_time, step_numbers, interval_times,
+                 steps, crc=None, state = None):
+                 
         self.code = code
         self.seq = seq
         self.segment_time = segment_time
-        self.velocities = velocities
+        
+        self.step_numbers = step_numbers
+        self.interval_times = interval_times
         self.steps = steps
+        
         self.crc = crc
         self.state = state
         
@@ -57,16 +62,17 @@ class Command(object):
         
         _ = p[4]
         code, seq , segment_time = p[3]
-        accelerations = p[6]
-        velocities = p[6]
+        step_numbers = p[6]
+        interval_times = p[6]
         steps = p[6]
         crc = p[1]
         
-        return Command(seq, code, accelerations, velocities, steps, crc)
+        return Command(seq, code, segment_time, step_numbers, interval_times, steps, crc)
         
     def encode(self):
         
-        msg = list(self.sync_str) + [self.code, self.seq, self.segment_time] + self.ticks + self.steps
+        msg = list(self.sync_str) + [self.code, self.seq, self.segment_time] \
+                + self.step_numbers + self.interval_times + self.steps
     
         try:
             self.crc = s32tou(binascii.crc32(struct.pack(Command.msg_fmt[:-1], *msg)))
@@ -79,8 +85,8 @@ class Command(object):
         return struct.pack(self.msg_fmt, *msg)
         
     def __repr__(self):
-        return '<{} {} {} {} {} {} ({})>'.format(self.seq, self.code, self.directions, 
-                                            self.ticks, self.steps, self.crc,self.state)
+        return '<{} {} {} {} {} {} ({})>'.format(self.seq, self.code, self.step_numbers, 
+                                            self.interval_times, self.steps, self.crc,self.state)
         
       
 class Response(object):
@@ -90,9 +96,10 @@ class Response(object):
     RESPONSE_DONE = 2 
     
     sync_str = 'IDXC'
-    msg_fmt = ('<4c'+
-                'H'+
-                'H'+
+    msg_fmt = (
+                '<4c'+ # Sync code "IDXC"
+                'H'+ # code
+                'H'+ # seq
                 '6H'+
                 '6i'+
                 '6h'+
@@ -126,10 +133,14 @@ class Response(object):
         p = struct.unpack(Response.msg_fmt,data)[4:]
 
         
-        (self.code, self.seq, 
-        self.queue_size, self.queue_min_seq,
-        self.min_char_read_time, self.max_char_read_time ,
-        self.min_loop_time, self.max_loop_time 
+        (self.code, 
+        self.seq, 
+        self.queue_size, 
+        self.queue_min_seq,
+        self.min_char_read_time, 
+        self.max_char_read_time ,
+        self.min_loop_time, 
+        self.max_loop_time 
         ) = p[0:8]
         
         self.steps = p[8:14]
