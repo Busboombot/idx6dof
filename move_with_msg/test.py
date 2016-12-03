@@ -159,6 +159,17 @@ class TestPoints(unittest.TestCase):
 
         print "\nAccelerations"
         print tabulate( mp.accelerations, headers = "J0 J1 J2 J3 J4 J5".split())
+        
+    def test_segments(self):
+        
+        from segments import JointSegment
+
+        js =  JointSegment(x=66250.00, t=400, v0=50, v1=100, a=1)
+        print js
+        js =  JointSegment(x=12 * 50 * 50, t=400, v0=150, v1=120, a=1)
+        print js
+       
+        
     
 if __name__ == '__main__':
     unittest.main()

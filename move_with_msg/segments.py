@@ -13,22 +13,23 @@ class JointSegment(object):
         
         # These three parameters must be related by x = vt
         # at least two of these must be specified
-        self.x = float(x) # segment distance
-        self.v = float(v) # average velocity
-        self.t = float(t) # Total segment time
+        self.x = float(x) if x is not None else None # segment distance
+        self.v = float(v) if v is not None else None # average velocity
+        self.t = float(t) if t is not None else None # Total segment time
         
         if self.x is None:
             self.x = self.v * self.t
         elif self.t is None:
             self.t = self.x / self.v
-        elif self.t is None:
+        elif self.v is None:
             self.v = self.x / self.t
         else:
-            assert False
+            assert False, (x,v,t)
         
         self.vrmax = None # Max v achievable for acel from v0 and decel to v1
         self.xmax = None # Max
         self.xmin = None
+        self.ts = None # Time at vrmax
         
         # Acceleration and deceleration
         self.a = float(a)
@@ -41,17 +42,16 @@ class JointSegment(object):
         self.ta = None # Acceleration time, from start of seg to end of accelerations
         self.td = None # Decleration time, from start of deceleration to end of segment
         
-    def recalc_acccel_times(self):
-        """ Calculate ta, td and vr to maintain constant x"""
+        self.calc_vr()
         
-    def calc_tatd(self):
-        
-        self.ta = self.v-self.v0 / self.a
-        self.td = self.v
         
     def calc_vr(self):
         
-        self.ta,  self.td, self.vrself._cal_vr(self.x, self.t, self.v0, self.v1)
+        self.ta, self.td, self.vr, self.ts, self.vrmax, self.xmin, calc_x, self.xmax = \
+            self._calc_vr(self.x, self.t, self.v0, self.v1, self.a, self.d)
+        
+        assert (calc_x - self.x) / self.x < .01
+        assert self.xmin <= calc_x <=self.xmax, (self.xmin,calc_x,self.xmax)
         
         
     def _calc_vr(self, x,t,v0,v1,a, d):
@@ -65,7 +65,6 @@ class JointSegment(object):
         xmax = .5*ts*(v0+vrmax) + .5 * (t-ts)*(v1+vrmax)
 
         xmin = .5*v0**2/a + .5*v1**2/d
-
 
         # Find Vr with a binary search. There is probably an analytical solution, 
         # but I'm tired of trying to figure it out. The function isn't continuous, so
@@ -102,8 +101,7 @@ class JointSegment(object):
 
 
         return round(ta,4), round(td,4), round(vr,4), ts, vrmax, xmin, x, xmax
-        
-    @staticmethod   
-    def pr(ta, td, vr, ts, vrmax, xmin, x,  xmax):
-        print "ta={:6.2f} vr={:6.2f} td={:6.2f} xmin={:10.2f} x={:10.2f} xmax={:10.2f} vr={:6.2f} ts={:6.2f}"\
-        .format(ta, td, vr, xmin, x, xmax, vrmax, ts)
+ 
+    def __str__(self):
+        return "{} ta={:6.2f} vr={:6.2f} td={:6.2f} xmin={:10.2f} x={:10.2f} xmax={:10.2f} vr={:6.2f} ts={:6.2f}"\
+        .format(self.t, self.ta, self.td, self.vr, self.xmin, self.x, self.xmax, self.vrmax, self.ts)
