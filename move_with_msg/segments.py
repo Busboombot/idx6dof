@@ -47,16 +47,49 @@ class JointSegment(object):
         
     def calc_vr(self):
         
-        self.ta, self.td, self.vr, self.ts, self.vrmax, self.xmin, calc_x, self.xmax = \
+        self.ta, self.td, self.vr, new_v1, self.ts, self.vrmax, self.xmin, calc_x, self.xmax = \
             self._calc_vr(self.x, self.t, self.v0, self.v1, self.a, self.d)
         
         assert (calc_x - self.x) / self.x < .01
         assert self.xmin <= calc_x <=self.xmax, (self.xmin,calc_x,self.xmax)
         
         
-    def _calc_vr(self, x,t,v0,v1,a, d):
+    @staticmethod
+    def calc_trap_area(vr):
+        """Find Vr with a binary search. There is probably an analytical solution, 
+           but I'm tired of trying to figure it out. The function isn't continuous, so
+           even an analytical solution would probably have some if statements in it."""
+
+        ta = abs((vr-v0)/a) # Linear extension from vo at slope a to vr
+        td = abs((vr-v1)/d) # Backward linear extension from v1 at slope d to vr
+
+        x = ( .5*ta*(v0+vr) + # Area under accel trapezoid
+              .5*td*(v1+vr) + # Area under decel trapezoid
+              vr*(t-ta-td)) # Area under constant v section
+      
+        return x, ta, td, v1
+        
+    @staticmethod
+    def calc_half_trap_area(vr):
+        """Like calc_trap_area, but v1 is always the same as vr, so td is 0"""
+
+        v1 = vr
+
+        ta = abs((vr-v0)/a) # Linear extension from vo at slope a to vr
+        td = 0 
+
+        x = ( .5*ta*(v0+vr) + # Area under accel trapezoid
+              .5*td*(v1+vr) + # Area under decel trapezoid
+              vr*(t-ta-td)) # Area under constant v section
+      
+        return x, ta, td, v1
+        
+    def _calc_vr(self, x,t,v0,v1, a, d, calc_f = None):
         """Computue the run velocity, acceleration break time, and deceleration break time
         for other trapezoidial profile parameters. """
+        
+        if calc_f is None:
+            calc_f = self.calc_trap_area
         
         ts = (d*t + v1 - v0) / 2*a # Point where acel line from v0 meets decel line from v1
 
@@ -67,33 +100,20 @@ class JointSegment(object):
 
         xmin = .5*v0**2/a + .5*v1**2/d
 
-        # Find Vr with a binary search. There is probably an analytical solution, 
-        # but I'm tired of trying to figure it out. The function isn't continuous, so
-        # even an analytical solution would probably have some if statements in it.
-        def calc_area(vr):
-    
-            ta = abs((vr-v0)/a) # Linear extension from vo at slope a to vr
-            td = abs((vr-v1)/d) # Backward linear extension from v1 at slope d to vr
-    
-            x = ( .5*ta*(v0+vr) + # Area under accel trapezoid
-                  .5*td*(v1+vr) + # Area under decel trapezoid
-                  vr*(t-ta-td)) # Area under constant v section
-          
-            return x, ta, td
-    
         import math
     
         low = 0
         high = int(math.ceil(vrmax))
 
+        v1 = self.v1
 
         while high - low > .0001:
     
             vr = (low + high) / 2.0
     
-            x_l, _, _ = calc_area(low)
-            x_m, ta, td = calc_area(vr)
-            x_h, _, _ = calc_area(high)
+            x_l, _, _, v1 = calc_area(low)
+            x_m, ta, td, v1 = calc_area(vr)
+            x_h, _, _, v1 = calc_area(high)
     
             if x_l <= x < x_m:
                 high = vr
@@ -101,8 +121,8 @@ class JointSegment(object):
                 low = vr
 
 
-        return round(ta,4), round(td,4), round(vr,4), ts, vrmax, xmin, x, xmax
+        return round(ta,4), round(td,4), round(vr,4), v1, ts, vrmax, xmin, x, xmax
  
     def __str__(self):
-        return "{} ta={:6.2f} vr={:6.2f} td={:6.2f} xmin={:10.2f} x={:10.2f} xmax={:10.2f} vr={:6.2f} ts={:6.2f}"\
-        .format(self.t, self.ta, self.td, self.vr, self.xmin, self.x, self.xmax, self.vrmax, self.ts)
+        return "{} v0={:6.2f} ta={:6.2f} vr={:6.2f} v1={:6.2f} td={:6.2f} xmin={:10.2f} x={:10.2f} xmax={:10.2f} vr={:6.2f} ts={:6.2f}"\
+        .format(self.t, self.v0 self.ta, self.td, self.v1, self.vr, self.xmin, self.x, self.xmax, self.vrmax, self.ts)
