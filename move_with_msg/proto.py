@@ -10,6 +10,8 @@ class SerialPacketError(Exception):
     pass
 
 
+
+
 class Command(object):
     
     COMMAND_MIN_VALUE = 10

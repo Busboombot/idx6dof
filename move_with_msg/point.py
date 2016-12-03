@@ -6,7 +6,9 @@ def sign_change(a, b):
         return False
     else:
         return sign(a) != sign(b)
-        
+    
+
+    
 class TrajectoryPoint(object):
     
     N_AXES = 6;

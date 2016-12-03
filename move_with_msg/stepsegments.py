@@ -17,13 +17,13 @@ class SimSegment(object):
         a = (v1-v0)/t 
     
         if a == 0:
-            cn  = 1000000. / v0
             n = 0
+            cn  = 1000000. / v0
         elif v0 == 0:
             n = 0 
             cn = 0.676 * sqrt(2.0 / abs(a)) * 1000000.0 * sign(a); # c0 in Equation 15
         else:
-            n = ((v0 * v0) / (2.0 * abs(a))) # Equation 16
+            n = int((v0 * v0) / (2.0 * abs(a))) # Equation 16
             cn = 1000000. / v0
             
         # If n is positive, there is a non zero velocity and we are accelerating

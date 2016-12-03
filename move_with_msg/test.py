@@ -95,7 +95,7 @@ class TestPoints(unittest.TestCase):
         
         for i in range(10):
  
-            p = p.move(5,[x])
+            p = p.move(5,[x], v1=[0])
             x = -x
             
             for s in p.yield_splits(500):
