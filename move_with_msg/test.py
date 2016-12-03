@@ -164,10 +164,9 @@ class TestPoints(unittest.TestCase):
         
         from segments import JointSegment
 
-        js =  JointSegment(x=66250.00, t=400, v0=50, v1=100, a=1)
-        print js
-        js =  JointSegment(x=12 * 50 * 50, t=400, v0=150, v1=120, a=1)
-        print js
+        print JointSegment(x=66250.00, t=400, v0=50, v1=100, a=1)
+        print JointSegment(x=12 * 50 * 50, t=400, v0=150, v1=120, a=1)
+        print JointSegment(x=20000, t=400, v0=0, v1=0, a=1)
        
         
     

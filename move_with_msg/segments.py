@@ -57,7 +57,8 @@ class JointSegment(object):
     def _calc_vr(self, x,t,v0,v1,a, d):
         """Computue the run velocity, acceleration break time, and deceleration break time
         for other trapezoidial profile parameters. """
-        ts = (d*t + v1 - v0) / 2*a
+        
+        ts = (d*t + v1 - v0) / 2*a # Point where acel line from v0 meets decel line from v1
 
         # Calc vrmax from acceleration from v0 + decel from v1, and average
         vrmax = (v0+v1+a*ts+a*(t-ts)) / 2.
@@ -71,12 +72,12 @@ class JointSegment(object):
         # even an analytical solution would probably have some if statements in it.
         def calc_area(vr):
     
-            ta = abs((vr-v0)/a)
-            td = abs((vr-v1)/d)
+            ta = abs((vr-v0)/a) # Linear extension from vo at slope a to vr
+            td = abs((vr-v1)/d) # Backward linear extension from v1 at slope d to vr
     
-            x = ( .5*ta*(v0+vr) +
-                  .5*td*(v1+vr) +
-                  vr*(t-ta-td))
+            x = ( .5*ta*(v0+vr) + # Area under accel trapezoid
+                  .5*td*(v1+vr) + # Area under decel trapezoid
+                  vr*(t-ta-td)) # Area under constant v section
           
             return x, ta, td
     
