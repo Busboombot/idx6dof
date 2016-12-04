@@ -160,14 +160,61 @@ class TestPoints(unittest.TestCase):
         print "\nAccelerations"
         print tabulate( mp.accelerations, headers = "J0 J1 J2 J3 J4 J5".split())
         
-    def test_segments(self):
+    def test_joint_segment(self):
         
         from segments import JointSegment
 
-        print JointSegment(x=66250.00, t=400, v0=50, v1=100, a=1)
-        print JointSegment(x=12 * 50 * 50, t=400, v0=150, v1=120, a=1)
-        print JointSegment(x=20000, t=400, v0=0, v1=0, a=1)
+        j =  JointSegment(x=63750, t=400, v0=50, v1=100, a=1)
+        print j
+        self.assertEquals(150, j.ta)
+        self.assertEquals(100, j.td)
+        self.assertEquals(200, j.vr)
+        j =  JointSegment(x=12 * 50 * 50, t=400, v0=150, v1=150, a=1)
+        self.assertEquals(100, round(j.ta,0))
+        self.assertEquals(100, round(j.td,0))
+        self.assertEquals(50, round(j.vr,0))
+        print j
+        j =  JointSegment(x=20000, t=400, v0=0, v1=0, a=1)
+        print j
        
+        print '---'
+        j =  JointSegment(x=20000, t=400, v0=0, v1=0, a=1)
+        print j
+        j =  JointSegment(v=50, t=400, v0=0, a=1)
+        print j
+        j =  JointSegment(v=50, t=400, v0=0, v1 = 50, a=1)
+        print j
+        
+        print '---'
+        
+        j = JointSegment(v=50, t=400, v0=0, v1 = 50, a=1)
+        print j
+        j = JointSegment(v=50, t=400, v0=0, v1 = 50, a=1)
+        j.td=0
+        j.calc_vr()
+        print j
+        j.td=None
+        j.calc_vr()
+        print j
+        
+        print '---'
+        
+        j = JointSegment(x=0, t=400, v0=9.53674316406e-05, v1 = 0, a=1)
+        print j
+       
+      
+        
+    def test_segments(self):
+        from segments import SegmentList
+        
+        sl = SegmentList(6, 15000, 1)
+        sl.add_segment([20000,30000,40000,0,0,0], t=400)
+        print sl
+        sl.add_segment([20000,30000,40000,0,0,0], t=400)
+        print sl
+        sl.add_segment([20000,30000,40000,0,0,0], t=400)
+        print sl
+        
         
     
 if __name__ == '__main__':

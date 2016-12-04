@@ -1,12 +1,104 @@
 
+from math import sqrt
 
 DEFAULT_ACCELERATION = 50000
 
+class SegmentList(object):
+    
+    def __init__(self, n_joints, v_max, a_max, d_max = None):
+        
+        self.n_joints = n_joints
+        
+        self.segments = []
+        
+        self.initial_velocities = [0] * self.n_joints
+        
+        self.a_max = a_max
+        
+        self.d_max = d_max if d_max is not None else self.a_max
+        
+    def set_initial_velocities(self, velocities):
+        assert len(velocities) == self.n_joints
+        
+        self.initial_velocities = velocities
+        
+        
+    def add_segment(self, joints, t=None, v=None):
+        """Add a new segment """
+        assert len(joints) == self.n_joints
+        
+        # Total length of the vector
+        vector_x = sqrt(sum( x**2 for x in joints))
+        
+        if t is None:
+            t = vector_x/v
+        
+        segmentjoints = []
+        
+        for i,x in enumerate(joints):
+            
+            if len(self.segments) == 0:
+                v0 = self.initial_velocities[i]
+            else:
+                
+                # Since we're getting a new segment, we can allow the previous one to 
+                # have a non-zero final velocity
+                last_seg_joint = self.segments[-1].joints[i]
+
+                last_seg_joint.v1 = None
+                last_seg_joint.td = 0
+                last_seg_joint.calc_vr()
+              
+                v0 = last_seg_joint.v1
+
+
+            js = JointSegment(x=x, t=t, v0=v0, v1=0, a=self.a_max, d=self.d_max)
+
+            segmentjoints.append(js)
+            
+        segment = Segment(segmentjoints, t=t, a=self.a_max, d=self.d_max )
+        
+        self.segments.append(segment)
+        
+    def __str__(self):
+        out = ''
+        for s in self.segments:
+            out += str(s)
+        return out
+
+class Segment(object):
+    
+    def __init__(self, joints, t, a, d):
+        
+        self.joints = joints
+        self.x  = sqrt(sum( j.x**2 for j in joints))
+        self.t = t
+       
+        self.a = a
+        self.d = d
+        
+        
+    def set_join(self, i, js):
+        
+        self.joints[i] = js
+        
+    def new_seg(self, x=None, v=None, t=None, v0=0, v1=None):
+    
+        js = JointSegment(x=x,v=v,t=t,v0=v0, v1=v1, a=self.a, d=self.d )
+        
+    def __str__(self):
+        
+        out = "== t={} x={}\n".format(self.t, self.x)
+        for js in self.joints:
+            out += '   '+str(js)+'\n'
+            
+        return out
+
 class JointSegment(object):
-    """ Description of a trapezoidal velocity profile for a setment of motion on 
+    """ Description of a trapezoidal velocity profile for a segment of motion on 
     a single joint """
     
-    def __init__(self, x=None, v=None, t=None, v0=0, v1=0, a = DEFAULT_ACCELERATION, d = None):
+    def __init__(self, x=None, v=None, t=None, v0=0, v1=None, a = DEFAULT_ACCELERATION, d = None):
         
         if sum( 1 for var in (x,v,t) if var is not None) != 2:
             raise ValueError("Must specify 2 of x, v or t")
@@ -36,32 +128,37 @@ class JointSegment(object):
         self.d = float(d) if d is not None else float(a)
         
         self.v0 = float(v0) # Velocity at start of segment
-        self.v1 = float(v1) # Velocity at end of segment
+        self.v1 = float(v1) if v1 is not None else None # Velocity at end of segment
         
         self.vr = None # Run velocity
         self.ta = None # Acceleration time, from start of seg to end of accelerations
         self.td = None # Decleration time, from start of deceleration to end of segment
         
         self.calc_vr()
-        
-        
+
     def calc_vr(self):
         
         self.ta, self.td, self.vr, new_v1, self.ts, self.vrmax, self.xmin, calc_x, self.xmax = \
             self._calc_vr(self.x, self.t, self.v0, self.v1, self.a, self.d)
         
-        assert (calc_x - self.x) / self.x < .01
-        assert self.xmin <= calc_x <=self.xmax, (self.xmin,calc_x,self.xmax)
+        #if self.x != 0:
+        #    assert (calc_x - self.x) / self.x < .0001
+            
+        #assert int(self.xmin) <= int(calc_x) <= int(self.xmax), (self.xmin,calc_x,self.xmax)
         
+        self.v1 = new_v1
         
     @staticmethod
-    def calc_trap_area(vr):
+    def calc_trap_area(t,vr, v1, v0, ta, td, a, d):
         """Find Vr with a binary search. There is probably an analytical solution, 
            but I'm tired of trying to figure it out. The function isn't continuous, so
            even an analytical solution would probably have some if statements in it."""
 
-        ta = abs((vr-v0)/a) # Linear extension from vo at slope a to vr
-        td = abs((vr-v1)/d) # Backward linear extension from v1 at slope d to vr
+        if ta is None:
+            ta = abs((vr-v0)/a) # Linear extension from vo at slope a to vr
+            
+        if td is None: 
+            td = abs((vr-v1)/d) # Backward linear extension from v1 at slope d to vr
 
         x = ( .5*ta*(v0+vr) + # Area under accel trapezoid
               .5*td*(v1+vr) + # Area under decel trapezoid
@@ -69,60 +166,59 @@ class JointSegment(object):
       
         return x, ta, td, v1
         
-    @staticmethod
-    def calc_half_trap_area(vr):
-        """Like calc_trap_area, but v1 is always the same as vr, so td is 0"""
-
-        v1 = vr
-
-        ta = abs((vr-v0)/a) # Linear extension from vo at slope a to vr
-        td = 0 
-
-        x = ( .5*ta*(v0+vr) + # Area under accel trapezoid
-              .5*td*(v1+vr) + # Area under decel trapezoid
-              vr*(t-ta-td)) # Area under constant v section
-      
-        return x, ta, td, v1
         
     def _calc_vr(self, x,t,v0,v1, a, d, calc_f = None):
         """Computue the run velocity, acceleration break time, and deceleration break time
         for other trapezoidial profile parameters. """
+        import math
+        
+        ta_in = self.ta
+        td_in = self.td
+        v1 = self.v1
         
         if calc_f is None:
-            calc_f = self.calc_trap_area
-        
-        ts = (d*t + v1 - v0) / 2*a # Point where acel line from v0 meets decel line from v1
+            if self.v1 is None:
 
-        # Calc vrmax from acceleration from v0 + decel from v1, and average
-        vrmax = (v0+v1+a*ts+a*(t-ts)) / 2.
+                vrmax = a*t+v0 # Accelerate all the way through the segment
+                
+                xmax = .5 * a * t * t + v0
+                xmin = .5*v0**2/a
+                ts = float('nan')
+                td_in = 0
+                v1 = 0
+            else:
 
-        xmax = .5*ts*(v0+vrmax) + .5 * (t-ts)*(v1+vrmax)
-
-        xmin = .5*v0**2/a + .5*v1**2/d
-
-        import math
+                ts = (d*t + v1 - v0) / 2*a # Point where acel line from v0 meets decel line from v1
+                
+                # Calc vrmax from acceleration from v0 + decel from v1, and average
+                vrmax = (v0+v1+a*ts+a*(t-ts)) / 2.
+                xmax = .5*ts*(v0+vrmax) + .5 * (t-ts)*(v1+vrmax)
+                xmin = .5*v0**2/a + .5*v1**2/d
     
         low = 0
         high = int(math.ceil(vrmax))
 
-        v1 = self.v1
-
-        while high - low > .0001:
+        while high - low > .00001:
     
             vr = (low + high) / 2.0
+
+            x_l, _, _  , v1 = self.calc_trap_area(t, low,  v1, v0, ta_in, td_in, a, d)
+            x_m, ta, td, v1 = self.calc_trap_area(t, vr,   v1, v0, ta_in, td_in, a, d)
+            #x_h, _, _  , v1 = self.calc_trap_area(t, high, v1, v0, ta_in, td_in, a, d)
     
-            x_l, _, _, v1 = calc_area(low)
-            x_m, ta, td, v1 = calc_area(vr)
-            x_h, _, _, v1 = calc_area(high)
-    
-            if x_l <= x < x_m:
+            if round(x_l,5) <= x <= round(x_m,5):
                 high = vr
             else:
                 low = vr
+                
+                
+        if td == 0:
+            v1 = vr
 
-
-        return round(ta,4), round(td,4), round(vr,4), v1, ts, vrmax, xmin, x, xmax
+        return round(ta,4), round(td,4), round(vr,4), v1, ts, vrmax, xmin, x_m, xmax
  
     def __str__(self):
-        return "{} v0={:6.2f} ta={:6.2f} vr={:6.2f} v1={:6.2f} td={:6.2f} xmin={:10.2f} x={:10.2f} xmax={:10.2f} vr={:6.2f} ts={:6.2f}"\
-        .format(self.t, self.v0 self.ta, self.td, self.v1, self.vr, self.xmin, self.x, self.xmax, self.vrmax, self.ts)
+
+        
+        return "{} v0={:6.2f} ta={:6.2f} vr={:6.2f} v1={:6.2f} td={:6.2f} xmin={:10.2f} x={:10.2f} xmax={:10.2f} vrmax={:6.2f} ts={:6.2f}"\
+        .format(self.t, self.v0, self.ta, self.vr, self.v1, self.td, self.xmin, self.x, self.xmax, self.vrmax, self.ts)
