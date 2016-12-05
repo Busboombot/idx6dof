@@ -63,11 +63,9 @@ int main(void) {
   Serial.print("Command size :");Serial.println(sizeof(struct command));
   Serial.print("Response size:");Serial.println(sizeof(struct response));
 
-
   for (;;) {
 
     toggle(14);
-
 
     cbuf.startLoop(); // Start diagnostic times. 
 
@@ -89,7 +87,6 @@ int main(void) {
       msg = 0;
     }
     
- 
     /*
      * If we have messages in the queue, and there is no message in progress, 
      * get the message and start working on it. 

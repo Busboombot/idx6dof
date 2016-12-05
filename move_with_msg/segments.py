@@ -150,7 +150,11 @@ class Segment(object):
 
 class JointSegment(object):
     """ Description of a trapezoidal velocity profile for a segment of motion on 
-    a single joint """
+    a single joint 
+    
+    A JointSegment has a constant x. A SubSegment has a constant a.
+    
+    """
     
     def __init__(self, x=None, v=None, t=None, v0=0, v1=None, a = DEFAULT_ACCELERATION, d = None):
         

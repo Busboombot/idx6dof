@@ -21,7 +21,7 @@ private:
     uint32_t stepsLeft;
     uint32_t lastTime;
    
-    uint32_t position = 0
+    uint32_t position = 0;
    
     long n; // Step counter for interval calculations
     float cn; // Interval, in microseconds
