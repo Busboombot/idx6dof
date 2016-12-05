@@ -55,10 +55,25 @@ class SegmentList(object):
             js = JointSegment(x=x, t=t, v0=v0, v1=0, a=self.a_max, d=self.d_max)
 
             segmentjoints.append(js)
-            
+        
+        if len(self.segments):
+            self.segments[-1].normalize_times()
+        
         segment = Segment(segmentjoints, t=t, a=self.a_max, d=self.d_max )
+        segment.normalize_times()
         
         self.segments.append(segment)
+        
+    def normalize_times(self):
+        
+        for s in self.segments:
+            s.normalize_times()
+        
+    def __iter__(self):
+        
+        for segment in self.segments:
+            for ss in segment:
+                yield ss
         
     def __str__(self):
         out = ''
@@ -77,8 +92,47 @@ class Segment(object):
         self.a = a
         self.d = d
         
+        self.ta = None
+        self.td = None
         
-    def set_join(self, i, js):
+    
+    def normalize_times(self):
+        
+        max_ta = max(j.ta for j in self.joints)
+        max_td = max(j.td for j in self.joints)
+        
+        assert max_ta + max_td < self.t
+        
+        for j in self.joints:
+            if j.ta != max_ta and j.td != max_td and j.x > 0 and ( j.ta > 0 or j.td > 0):
+                j.ta = max_ta
+                j.td = max_td
+                j.calc_vr()
+        
+        self.ta = max_ta
+        self.td = max_td
+            
+    def __iter__(self):
+        
+        self.normalize_times()
+        
+        def calc_x(t, v0, v1):
+            x = t * (v0+v1)/2.
+        
+            return ( int(round(x,0)), int(round(v0,0)), int(round(v1,0)))
+        
+        if self.ta > 0:
+            yield int(round(self.ta,0)), [ calc_x(self.ta, j.v0, j.vr ) for j in self.joints ]
+            
+        tr = self.t-self.ta-self.td
+            
+        yield int(round(tr,0)), [ calc_x(tr, j.vr, j.vr) for j in self.joints ]
+        
+        if self.td > 0:
+            yield int(round(self.td,0)), [ calc_x(self.td, j.vr, j.v1)  for j in self.joints ]
+        
+    
+    def set_joint(self, i, js):
         
         self.joints[i] = js
         
@@ -141,10 +195,10 @@ class JointSegment(object):
         self.ta, self.td, self.vr, new_v1, self.ts, self.vrmax, self.xmin, calc_x, self.xmax = \
             self._calc_vr(self.x, self.t, self.v0, self.v1, self.a, self.d)
         
-        #if self.x != 0:
-        #    assert (calc_x - self.x) / self.x < .0001
+        if self.x != 0:
+            assert (calc_x - self.x) / self.x < .0001
             
-        #assert int(self.xmin) <= int(calc_x) <= int(self.xmax), (self.xmin,calc_x,self.xmax)
+        assert int(self.xmin) <= int(calc_x) <= int(self.xmax), (self.xmin,calc_x,self.xmax)
         
         self.v1 = new_v1
         

@@ -209,12 +209,25 @@ class TestPoints(unittest.TestCase):
         
         sl = SegmentList(6, 15000, 1)
         sl.add_segment([20000,30000,40000,0,0,0], t=400)
-        print sl
         sl.add_segment([20000,30000,40000,0,0,0], t=400)
-        print sl
         sl.add_segment([20000,30000,40000,0,0,0], t=400)
+        sl.add_segment([20000,30000,40000,0,0,0], t=400)
+        
         print sl
         
+        for s in sl:
+            print s
+        
+        t_sum = 0
+        x_sum = [0] * 6
+        for t, joints in sl:
+             t_sum += t
+             x = [e[0] for e in joints]
+             x_sum = [ xs+x for xs, x in zip(x_sum, x)]
+             
+        self.assertEquals(1600, round(t_sum, -1))
+        self.assertEquals(80000, round(x_sum[0], -1))
+        self.assertEquals(120000, round(x_sum[1], -1))
         
     
 if __name__ == '__main__':
