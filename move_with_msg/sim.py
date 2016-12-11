@@ -6,6 +6,7 @@ def sign(a): return (a>0) - (a<0)
 
 class SimSegment(object):
     """A step segment for simulating the step interval algorithm. """
+    
     def __init__(self, v0, v1, x):
         """Return segment parameters given the initial velocity, final velocity, and distance traveled. """
 
@@ -16,21 +17,11 @@ class SimSegment(object):
         t = abs(2.* float(x) / float(v1+v0))
         a = (v1-v0)/t 
     
-        if a == 0:
-            n = 0
-            cn  = 1000000. / v0
-        elif v0 == 0:
-            n = 0 
-            cn = 0.676 * sqrt(2.0 / abs(a)) * 1000000.0 * sign(a); # c0 in Equation 15
-        else:
-            n = int((v0 * v0) / (2.0 * abs(a))) # Equation 16
-            cn = 1000000. / v0
-            
+        n, cn = self.initial_params(v0, a)
+
         # If n is positive, there is a non zero velocity and we are accelerating
         # If it is negative, there is a non zero velocity and we are decelerating 
-        if sign(a) != sign(v0): # Decelerating
-            n = -n
-            
+      
         self.x = abs(x)
         self.xn = 0 # running position. Done when xn = x
         self.v0 = v0
@@ -42,19 +33,48 @@ class SimSegment(object):
         self.n = n
         self.cn = cn
 
+
+    @staticmethod
+    def initial_params( v0, a):
+        
+        # Cn is the number of microseconds between  steps
+        # n is acceleration step number 
+        
+        if a == 0:
+            n = 0
+            cn  = 1000000. / v0
+        elif v0 == 0:
+            n = 0 
+            cn = 0.676 * sqrt(2.0 / abs(a)) * 1000000.0 * sign(a); # c0 in Equation 15
+        else:
+            n = int((v0 * v0) / (2.0 * abs(a))) # Equation 16
+            cn = 1000000. / v0
+        
+        if sign(a) != sign(v0): # Decelerating
+            n = -n
+        
+        return n, cn
+
+    @staticmethod
+    def next_params(n, cn):
+        
+        cn = cn - ( (2.0 * cn) / ((4.0 * n) + 1));  # Equation 13 
+        n += 1
+        
+        return n, cn
+        
     def next_delay(self):
 
         """Call this after each step to compute the delay to the next step"""
 
         if self.a != 0:
-            self.cn = self.cn - ( (2.0 * self.cn) / ((4.0 * self.n) + 1));  # Equation 13 
+            self.n, self.cn = self.next_params(self.n, self.cn)
             
-        self.n += 1
         self.xn += 1
         self.tn += abs(self.cn)
         self.vn = 1000000./self.cn
         
-        return self.cn
+        return n, self.cn
         
         
     def __iter__(self):

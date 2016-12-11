@@ -19,20 +19,36 @@
 
 #define N_AXES 6
 
+// There is a practical minimum of 25 us per step == 40Ks/s
+// If segment time is max of .065s, then max steps per segment is
+// 2,600. With 24 bits, max segment time is 16sec, but is sensibly 
+// capped at .82s, or 2**15s. Either way, a segment steps can be signed 16 bits. 
 
 struct command {
-    byte sync[4] = {'I','D','X','C'}; // 4
-    uint16_t code = 0; // command code // 2
+    byte sync[2] = {'I','D'}; // 2
     uint16_t seq = 0; // Packet sequence // 2
-    uint32_t segment_time = 0; // total segment time, in microseconds 4
-    // Acceleration step number numbers
-    long n[N_AXES] = {0,0,0,0,0,0};  // 24
-    // Number of steps in which to reach target velocity
-    long stepLeft[N_AXES] = {0,0,0,0,0,0};  // 24 Step numbers
-    // Interval delay
-    float cn[N_AXES] = {0,0,0,0,0,0};  // 24
+    uint16_t code = 0; // command code // 2
+    uint16_t segment_time = 0; // total segment time, in microseconds // 2
+
+    uint16_t steps = {0,0,0,0,0,0}; // number of steps // 12
+    int16_t accel_step = {0,0,0,0,0,0}; // "n" in the austin algorithm // 12
+    int16_t intervals = {0,0,0,0,0,0}; // "Cn" in the Austin algorithm // 12
+    
     uint32_t crc = 0; // Payload CRC // 4
-}; // 88
+}; // 48
+
+struct axis_command {
+    uint16_t seq = 0; // Packet sequence, segment number // 2
+    uint8_t  axis = 0; // 1 high bit signals last axis in segment
+    uint8_t  code = 0; // command code // 1
+    uint16_t segment_time = 0; // total segment time, in microseconds // 2
+
+    uint16_t steps = 0; // number of steps // 2
+    int16_t accel_step = 0; // "n" in the austin algorithm // 2
+    int16_t intervals = 0; // "Cn" in the Austin algorithm // 2
+    
+    uint32_t crc = 0; // Payload CRC // 4
+}; // 16
 
 
 struct response {

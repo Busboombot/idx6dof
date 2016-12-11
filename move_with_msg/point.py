@@ -1,12 +1,6 @@
 
 def sign(a): return (a>0) - (a<0)
 
-def sign_change(a, b):
-    if sign(a) == 0 or sign(b) == 0:
-        return False
-    else:
-        return sign(a) != sign(b)
-    
 
     
 class TrajectoryPoint(object):

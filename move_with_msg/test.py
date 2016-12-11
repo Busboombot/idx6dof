@@ -65,42 +65,8 @@ class TestPoints(unittest.TestCase):
             print s
     
     
-    def test_run_move(self):
-        
-        p = TrajectoryPoint(0,[0,0])
-        
-        print(p)
-        
-        p = p.move(1,[100,100])
-
-        print(p)
-        
-        p = p.run(1,[500,500])
-
-        print(p)
     
-    
-    def test_gen_params(self):
-        
-        p = TrajectoryPoint(0,[0])
-        
-        x = 1000
-        
-        
-        def pr(p):
-            print "T:{:6.2f} X:{:8.2f} A:{:8.2f} {:10.2f}->{:10.2f}->{:10.2f}" \
-                    .format(p.abs_t0,p.abs_x0[0],p.a[0], p.v0[0],p.x[0], p.v1[0])
-        
-        pr(p)
-        
-        for i in range(10):
- 
-            p = p.move(5,[x], v1=[0])
-            x = -x
-            
-            for s in p.yield_splits(500):
-                #print '----', s.abs_t0, s.abs_x0
-                pr(s)
+
 
        
     
@@ -143,22 +109,7 @@ class TestPoints(unittest.TestCase):
                 else:
                     time.sleep(0.1)
         
-    
-    def x_test_trajectory(self):
-        mp = MotionPlanner(100000,500000, 1000000)
-        mp.add_point(TrajectoryPoint(.1, [1000,500]))
-        mp.add_point(TrajectoryPoint(.1, [2000,-500]))
-        mp.add_point(TrajectoryPoint(.1, [4000,500]))
-        mp.add_point(TrajectoryPoint(.1, [0,-500]))
 
-        print "Positions"
-        print tabulate(  [ p.info_row() for p in mp.moves] , headers = "T V L J0 J1 J2 J3 J4 J5".split())
-
-        print "\nVelocities"
-        print tabulate( mp.velocities, headers = "J0 J1 J2 J3 J4 J5".split())
-
-        print "\nAccelerations"
-        print tabulate( mp.accelerations, headers = "J0 J1 J2 J3 J4 J5".split())
         
     def test_joint_segment(self):
         
@@ -229,6 +180,28 @@ class TestPoints(unittest.TestCase):
         self.assertEquals(80000, round(x_sum[0], -1))
         self.assertEquals(120000, round(x_sum[1], -1))
         
+    def test_sim(self):
+        from sim import SimSegment
+        from segments import SegmentList
+    
+        sl = SegmentList(6, 40000, 15000)
+        sl.add_segment([26500,0,0,0,0,0], t=2.66)
+        
+        sl.segments[0].ta
+        
+        for t, joints in sl:
+            print t, joints
+            x, v0, v1 = joints[0]
+            a = float(v1-v0)/float(t)
+            print t, x, v0, v1,a
+        
+        return 
+    
+        n, cn = SimSegment.initial_params(20,1000)
+
+        for i in range(20):
+            print i, n, cn, 1000000./cn
+            n, cn = SimSegment.next_params(n, cn)
     
 if __name__ == '__main__':
     unittest.main()
