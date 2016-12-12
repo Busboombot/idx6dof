@@ -1,7 +1,7 @@
 from planning import MotionPlanner, TrajectoryPoint
 from tabulate import tabulate
 from proto import Proto, Command, Response
-from stepsegments import SimSegment
+from sim import SimSegment
 
 import unittest
 
@@ -64,11 +64,7 @@ class TestPoints(unittest.TestCase):
         for s in p.yield_splits(500):
             print s
     
-    
-    
-
-
-       
+  
     
     def test_joy(self):
         
@@ -174,11 +170,35 @@ class TestPoints(unittest.TestCase):
         for t, joints in sl:
              t_sum += t
              x = [e[0] for e in joints]
-             x_sum = [ xs+x for xs, x in zip(x_sum, x)]
+             v = [e[2] for e in joints]
+             x_sum = [ xs+xi for xs, xi in zip(x_sum, x)]
+             print t_sum, x[0],  v[2]
              
         self.assertEquals(1600, round(t_sum, -1))
         self.assertEquals(80000, round(x_sum[0], -1))
         self.assertEquals(120000, round(x_sum[1], -1))
+        
+    def test_sim_steps(self):
+        from sim import SimSegment
+        from math import sqrt
+        from operator import attrgetter
+        
+        def prss(ss):
+            print ss.n,ss.tn,ss.xn,ss.vn,ss.cn
+            
+        def roundss(ss):
+            return (ss.n,round(ss.tn,-4),ss.xn,round(ss.vn,-1),round(ss.cn,-4))
+          
+        #                   n      t       x     v1      cn
+        self.assertEquals((500, 980000.0, 500, 1000.0,  0.0),     roundss(SimSegment(0    ,1000 , 500).run_out()))
+        self.assertEquals((500, 980000.0, 500, -1000.0, 0.0),     roundss(SimSegment(0    ,-1000, 500).run_out()))
+        self.assertEquals((0,   990000.0, 500, 30.0,    30000.0), roundss(SimSegment(1000 ,0    , 500).run_out()))
+        self.assertEquals((0,   990000.0, 500, -30.0,   30000.0), roundss(SimSegment(-1000,0    , 500).run_out()))
+        
+        ss = SimSegment(0,67,6667)
+        for x in ss:
+            prss(ss)
+            
         
     def test_sim(self):
         from sim import SimSegment
@@ -187,21 +207,79 @@ class TestPoints(unittest.TestCase):
         sl = SegmentList(6, 40000, 15000)
         sl.add_segment([26500,0,0,0,0,0], t=2.66)
         
-        sl.segments[0].ta
-        
         for t, joints in sl:
-            print t, joints
             x, v0, v1 = joints[0]
             a = float(v1-v0)/float(t)
-            print t, x, v0, v1,a
+            print "{} x={} v0={} v1={} a={}".format(t, x, v0, v1, a)
         
-        return 
+        print "-----" 
     
-        n, cn = SimSegment.initial_params(20,1000)
+        s = SimSegment(10000,0,5000)
+        for _ in s:
+            print s
+    
+    
+            
+    def test_plot(self):
+        import pandas as pd 
+        import matplotlib.pyplot as plt
+        
+        l = [ (t/1.e6,x,v) for t,x,v, cn, n in SimSegment(0,1000,500) ]
+        
+        df = pd.DataFrame(l, columns='t x v'.split())
+        
+        print df.head()
+        
+        df.plot(x='t',y='x')
 
-        for i in range(20):
-            print i, n, cn, 1000000./cn
-            n, cn = SimSegment.next_params(n, cn)
+        plt.show()
+        
+    def test_plot2(self):
+        from segments import SegmentList
+        import pandas as pd 
+        import numpy as np
+        import matplotlib.pyplot as plt
+        
+        sl = SegmentList(6, 15000, 1)
+        sl.add_segment([20000,30000,40000,0,0,0], t=400)
+        sl.add_segment([20000,30000,40000,0,0,0], t=400)
+        sl.add_segment([20000,30000,40000,0,0,0], t=400)
+        sl.add_segment([20000,30000,40000,0,0,0], t=400)
+        
+     
+        t_sum = ti_sum = 0
+        x_sum = xi_sum = 0
+        l = [(0,0,0)]
+        sims = []
+        plot_joint = 0
+        
+        for t, joints in sl:
+            t_sum += t
+            
+            joint = joints[plot_joint]
+            
+            x = joint[0]
+            v0 = joint[1]
+            v1 = joint[2]
+            
+            x_sum += x
+            l.append( (t_sum, x_sum,  v1) )
+            
+            sims += [ ((ti_sum+ti)/1.e6,xi_sum+xi,vi) for ti,xi,vi,cn,n in SimSegment(v0,v1,int(x)) ]
+            ti_sum += ti
+            xi_sum += xi
+
+        df = pd.DataFrame(l, columns='t x v'.split())
+        df2 = pd.DataFrame(sims, columns='t xs vs'.split())
+        
+        
+        fig, ax = plt.subplots(1, 1)
+        df.plot(ax=ax,x='t',y='x')
+        df2.plot(ax=ax,x='t',y='xs')
+        
+        plt.show()
+
+
     
 if __name__ == '__main__':
     unittest.main()

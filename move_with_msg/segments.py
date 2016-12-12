@@ -182,7 +182,7 @@ class JointSegment(object):
         
         if specd_vars == 3:
             raise ValueError("Must specify 2 or fewer of x, v or t")
-        elif if specd_vars == 1 and self.x is None:
+        elif specd_vars == 1 and self.x is None:
             raise ValueError("If only one of x,v,t is specified, it must be x")
         
         if self.x is None:
@@ -258,25 +258,25 @@ class JointSegment(object):
         td_in = self.td
         v1 = self.v1
         
-        if calc_f is None:
-            if self.v1 is None:
 
-                vrmax = a*t+v0 # Accelerate all the way through the segment
-                
-                xmax = .5 * a * t * t + v0
-                xmin = .5*v0**2/a
-                ts = float('nan')
-                td_in = 0
-                v1 = 0
-            else:
+        if self.v1 is None:
 
-                ts = (d*t + v1 - v0) / 2*a # Point where acel line from v0 meets decel line from v1
-                
-                # Calc vrmax from acceleration from v0 + decel from v1, and average
-                vrmax = (v0+v1+a*ts+a*(t-ts)) / 2.
-                xmax = .5*ts*(v0+vrmax) + .5 * (t-ts)*(v1+vrmax)
-                xmin = .5*v0**2/a + .5*v1**2/d
-    
+            vrmax = a*t+v0 # Accelerate all the way through the segment
+            
+            xmax = .5 * a * t * t + v0
+            xmin = .5*v0**2/a
+            ts = float('nan')
+            td_in = 0
+            v1 = 0
+        else:
+
+            ts = (d*t + v1 - v0) / 2*a # Point where acel line from v0 meets decel line from v1
+            
+            # Calc vrmax from acceleration from v0 + decel from v1, and average
+            vrmax = (v0+v1+a*ts+a*(t-ts)) / 2.
+            xmax = .5*ts*(v0+vrmax) + .5 * (t-ts)*(v1+vrmax)
+            xmin = .5*v0**2/a + .5*v1**2/d
+
         low = 0
         high = int(math.ceil(vrmax))
 

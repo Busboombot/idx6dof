@@ -7,33 +7,6 @@ def sign(a): return (a>0) - (a<0)
 class SimSegment(object):
     """A step segment for simulating the step interval algorithm. """
     
-    def __init__(self, v0, v1, x):
-        """Return segment parameters given the initial velocity, final velocity, and distance traveled. """
-
-        if sign(v0) and sign(v1) and not ( sign(v0) == sign(v1)):
-            raise Exception("The velocity trajectory cannot cross zero.")
-
-        #Each segment must have a consistent, single-valued accceleration
-        t = abs(2.* float(x) / float(v1+v0))
-        a = (v1-v0)/t 
-    
-        n, cn = self.initial_params(v0, a)
-
-        # If n is positive, there is a non zero velocity and we are accelerating
-        # If it is negative, there is a non zero velocity and we are decelerating 
-      
-        self.x = abs(x)
-        self.xn = 0 # running position. Done when xn = x
-        self.v0 = v0
-        self.v1 = v1 # Velocity at last step
-        self.tn  =  0 # Total transit time
-        self.t1 = t # time at last step
-        self.vn = v0 # time at last step
-        self.a = a
-        self.n = n
-        self.cn = cn
-
-
     @staticmethod
     def initial_params( v0, a):
         
@@ -45,23 +18,54 @@ class SimSegment(object):
             cn  = 1000000. / v0
         elif v0 == 0:
             n = 0 
-            cn = 0.676 * sqrt(2.0 / abs(a)) * 1000000.0 * sign(a); # c0 in Equation 15
+            cn = 0.676 * sqrt(2.0 / abs(a)) * 1000000.0; # c0 in Equation 15
         else:
-            n = int((v0 * v0) / (2.0 * abs(a))) # Equation 16
+            n = int((v0 * v0) / (2.0 * a)) # Equation 16
             cn = 1000000. / v0
         
-        if sign(a) != sign(v0): # Decelerating
-            n = -n
+        #if sign(a) != sign(v0): # Decelerating
+        #    n = -n
         
         return n, cn
 
     @staticmethod
     def next_params(n, cn):
-        
+        cn = float(cn)
         cn = cn - ( (2.0 * cn) / ((4.0 * n) + 1));  # Equation 13 
         n += 1
         
         return n, cn
+    
+    def __init__(self, v0, v1, x):
+        """Return segment parameters given the initial velocity, final velocity, and distance traveled. """
+
+        #Each segment must have a consistent, single-valued accceleration
+        if abs(sign(v0) + sign(v1)) == 0: # both signs are nonzero and opposite
+            raise Exception("The velocity trajectory cannot cross zero. Got {}->{}".format(v0, v1))
+
+        # If n is positive, there is a non zero velocity and we are accelerating
+        # If it is negative, there is a non zero velocity and we are decelerating 
+      
+        self.x = int(round(abs(x),0))
+        self.xn = 0 # running position. Done when xn = x
+        self.v0 = abs(v0)
+        self.v1 = abs(v1) # Velocity at last step
+        
+        t = abs(2.* float(self.x) / float(self.v1+self.v0))
+        a = (self.v1-self.v0)/t 
+    
+        n, cn = self.initial_params(self.v0, a)
+        
+        
+        self.tn  =  0 # Total transit time
+        self.t1 = t # time at last step
+        self.vn = abs(v0) # running velocity
+        self.a = a
+        self.n = n
+        self.cn = cn
+        
+        self.dir = sign(v0 + v1 ) 
+
         
     def next_delay(self):
 
@@ -69,24 +73,22 @@ class SimSegment(object):
 
         if self.a != 0:
             self.n, self.cn = self.next_params(self.n, self.cn)
-            
+        
         self.xn += 1
         self.tn += abs(self.cn)
-        self.vn = 1000000./self.cn
+        self.vn = abs(1000000./self.cn) * self.dir
         
-        return n, self.cn
+        return self.n, self.cn
         
         
     def __iter__(self):
-        yield self.tn,self.cn, self.n
-        self.n += 1
         while True:
+            yield self.tn, self.xn, self.vn, self.cn, self.n
             self.next_delay()
-            yield self.tn,self.cn, self.n
             if self.x == self.xn:
                 break
                 
-    def runOut(self):
+    def run_out(self):
         for _ in self:
             pass
         return self
@@ -107,6 +109,6 @@ class SimSegment(object):
         return t,  v0+a*t
         
     def __repr__(self):
-        return  '{:6.0f}->{:6.0f} in {:6.0f} steps, {:6.2f} s , a={:6.2f}'\
-                 .format(self.v0, self.vn, self.xn, self.tn/1000000., self.a)
+        return  '{:<10.6} n={:<6d} cn={:<8.4f} xn={:<6.0f} vn={:<6.0f}'\
+                 .format(self.tn/1000000., self.n, self.cn, self.xn, self.vn)
 
