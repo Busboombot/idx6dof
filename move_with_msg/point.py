@@ -2,7 +2,6 @@
 def sign(a): return (a>0) - (a<0)
 
 
-    
 class TrajectoryPoint(object):
     
     N_AXES = 6;
@@ -29,9 +28,7 @@ class TrajectoryPoint(object):
                 self.v0[i] = float(v0[i])
             except IndexError:
                 pass
-               
-        
-          
+
         self.recalc(v1=v1)
                
     def recalc(self, v1=None, t=None):

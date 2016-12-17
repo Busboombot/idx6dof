@@ -45,6 +45,7 @@ int IDXCommandBuffer::run(){
                     
                 } else {
                     sendNack(*last_command);
+                    //Serial.print("NACK ");Serial.println(last_command->seq);
                 }
            
                 buf_pos = 0;

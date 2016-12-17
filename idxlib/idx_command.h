@@ -30,41 +30,28 @@ struct command {
     uint16_t code = 0; // command code // 2
     uint16_t segment_time = 0; // total segment time, in microseconds // 2
 
-    uint16_t steps = {0,0,0,0,0,0}; // number of steps // 12
-    int16_t accel_step = {0,0,0,0,0,0}; // "n" in the austin algorithm // 12
-    int16_t intervals = {0,0,0,0,0,0}; // "Cn" in the Austin algorithm // 12
+    uint16_t steps[6] = {0,0,0,0,0,0}; // number of steps // 12
+    int16_t accel_step[6] = {0,0,0,0,0,0}; // "n" in the Austin algorithm // 12
+    int16_t intervals[6] = {0,0,0,0,0,0}; // "Cn" in the Austin algorithm // 12
     
     uint32_t crc = 0; // Payload CRC // 4
 }; // 48
 
-struct axis_command {
-    uint16_t seq = 0; // Packet sequence, segment number // 2
-    uint8_t  axis = 0; // 1 high bit signals last axis in segment
-    uint8_t  code = 0; // command code // 1
-    uint16_t segment_time = 0; // total segment time, in microseconds // 2
-
-    uint16_t steps = 0; // number of steps // 2
-    int16_t accel_step = 0; // "n" in the austin algorithm // 2
-    int16_t intervals = 0; // "Cn" in the Austin algorithm // 2
-    
-    uint32_t crc = 0; // Payload CRC // 4
-}; // 16
-
 
 struct response {
-    byte sync[4] = {'I','D','X','C'};  // 4 
+    byte sync[2] = {'I','D'};  // 2 
+    uint16_t seq = 0; // Packet sequence // 2
     uint16_t code = 0; // command code // 2
-    uint16_t seq = 0; // Packet sequence //2
-    
     uint16_t queue_size; // 2
     uint16_t queue_min_seq; // 2
     uint16_t min_char_read_time; // 2
     uint16_t max_char_read_time; // 2
     uint16_t min_loop_time; // 2
     uint16_t max_loop_time; // 2
+    uint16_t padding; // 2
     // 20 
-    int32_t steps[N_AXES] = {0,0,0,0,0,0};  // 24
     int16_t encoder_diffs[N_AXES] = {0,0,0,0,0,0}; // 12
+    int32_t steps[N_AXES] = {0,0,0,0,0,0};  // 24
     
     uint32_t crc = 0; // Payload CRC // 4
 }; // 60
@@ -155,9 +142,13 @@ public:
         response.seq = seq;
         response.code = code;  
         
+        //Serial.print("Send #");Serial.print(response.seq);Serial.print(" ");Serial.println(response.code);
+        
         uint32_t crc  = CRC32::checksum( (const uint8_t*)&response, 
                                      sizeof(response) - sizeof(response.crc));
           
+        response.crc = crc;
+                                     
         ser.write( (uint8_t*)&response, sizeof(struct response));
 
     }
@@ -195,7 +186,7 @@ public:
     inline void sendNack(struct command & command){ 
         cmd_response.queue_size = (uint16_t)size();
         cmd_response.queue_min_seq = queue_min_seq();
-        sendResponse(cmd_response, command.seq, IDX_COMMAND_ACK);
+        sendResponse(cmd_response, command.seq, IDX_COMMAND_NACK);
     }
 
     inline void sendDone(struct command & command){ 

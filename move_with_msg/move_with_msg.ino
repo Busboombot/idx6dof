@@ -78,7 +78,7 @@ int main(void) {
      */
     
     if (active_axes == 0 && msg != 0){
-      Serial.print("Clear message ");
+      Serial.println("Clear message ");
       cbuf.sendDone(*msg);
       cbuf.resetLoopTimes();
       //cbuf.setPositions(positions);
@@ -96,18 +96,17 @@ int main(void) {
     if( cbuf.size() > 0 && msg == 0 ){
      
       msg = cbuf.getMessage();
-      Serial.print("Recv message: ");
-      Serial.print(msg->code); Serial.print(" ");
+      Serial.print("Recv message: #");
       Serial.print(msg->seq); Serial.print(" ");
+      Serial.print(msg->code); Serial.print(" crc=");
       Serial.print(msg->crc); Serial.println(" ");
       
       for (int axis = 0; axis < N_AXES; axis ++){
-        steppers[axis].setParams(msg->n[axis], msg->cn[axis], msg->stepLeft[axis]);
+        steppers[axis].setParams(msg->accel_step[axis], msg->intervals[axis], msg->steps[axis]);
       }
     }
     
-    /*
-     * Clear all of the pins, so setting a pin actually results in a
+     /* Clear all of the pins, so setting a pin actually results in a
      * transition
      */
     

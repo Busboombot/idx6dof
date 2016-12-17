@@ -22,7 +22,6 @@ def compare(v0, v1, x):
 
 class TestPoints(unittest.TestCase):
     
-    
     def test_accel_calcs(self):
 
         compare(600,600,2400)
@@ -37,7 +36,6 @@ class TestPoints(unittest.TestCase):
         compare(601,599,2400)
         compare(-599,-601,2400)
         compare(-601,-599,2400)
-    
     
     def test_accel_cals_2(self):
         
@@ -64,8 +62,6 @@ class TestPoints(unittest.TestCase):
         for s in p.yield_splits(500):
             print s
     
-  
-    
     def test_joy(self):
         
         from joystick import Joystick
@@ -84,18 +80,41 @@ class TestPoints(unittest.TestCase):
                 p = p.run(dt, v1=e)
                 print p
             
+    def test_simple_messages(self):
+        import time
+        
+        print ("Command size", Command.size)
+        print ("Response Size", Response.size)
+        
+        null_axes = [0,1,2,3,4,5]
+        
+        with Proto('/dev/cu.usbmodemFD1431') as proto:
+            
+            msg = Command(1, 10, 3*1, null_axes, null_axes, null_axes)
+            proto.write(msg)
+            print(msg)
+            
+            msg = Command(2, 10, 3*1, null_axes, null_axes, null_axes)
+            proto.write(msg)
+            print(msg)
+        
+            while len(proto.sent) > 0:
+                time.sleep(.01)
+
+
+            
     def test_messages(self):
         import time
         
-        print (Command.size)
-        print (Response.size)
+        print ("Command size", Command.size)
+        print ("Response Size", Response.size)
         
-        null_axes = [0]*6
+        null_axes = [0,1,2,3,4,5]
         
         with Proto('/dev/cu.usbmodemFD1431') as proto:
             for i in range(10):
         
-                msg = Command(10, i, 3*1, null_axes, null_axes, null_axes)
+                msg = Command(i, 10, 3*1, null_axes, null_axes, null_axes)
                 proto.write(msg)
                 print(msg)
 
@@ -104,54 +123,10 @@ class TestPoints(unittest.TestCase):
                         time.sleep(.01)  
                 else:
                     time.sleep(0.1)
-        
 
+    
         
-    def test_joint_segment(self):
-        
-        from segments import JointSegment
-
-        j =  JointSegment(x=63750, t=400, v0=50, v1=100, a=1)
-        print j
-        self.assertEquals(150, j.ta)
-        self.assertEquals(100, j.td)
-        self.assertEquals(200, j.vr)
-        j =  JointSegment(x=12 * 50 * 50, t=400, v0=150, v1=150, a=1)
-        self.assertEquals(100, round(j.ta,0))
-        self.assertEquals(100, round(j.td,0))
-        self.assertEquals(50, round(j.vr,0))
-        print j
-        j =  JointSegment(x=20000, t=400, v0=0, v1=0, a=1)
-        print j
-       
-        print '---'
-        j =  JointSegment(x=20000, t=400, v0=0, v1=0, a=1)
-        print j
-        j =  JointSegment(v=50, t=400, v0=0, a=1)
-        print j
-        j =  JointSegment(v=50, t=400, v0=0, v1 = 50, a=1)
-        print j
-        
-        print '---'
-        
-        j = JointSegment(v=50, t=400, v0=0, v1 = 50, a=1)
-        print j
-        j = JointSegment(v=50, t=400, v0=0, v1 = 50, a=1)
-        j.td=0
-        j.calc_vr()
-        print j
-        j.td=None
-        j.calc_vr()
-        print j
-        
-        print '---'
-        
-        j = JointSegment(x=0, t=400, v0=9.53674316406e-05, v1 = 0, a=1)
-        print j
-       
-      
-        
-    def test_segments(self):
+    def test_linear_segments(self):
         from segments import SegmentList
         
         sl = SegmentList(6, 15000, 1)
@@ -162,21 +137,74 @@ class TestPoints(unittest.TestCase):
         
         print sl
         
-        for s in sl:
+        for s in sl.iter_subsegments:
             print s
         
         t_sum = 0
         x_sum = [0] * 6
-        for t, joints in sl:
+        for t, joints in sl.iter_subsegments:
              t_sum += t
              x = [e[0] for e in joints]
              v = [e[2] for e in joints]
              x_sum = [ xs+xi for xs, xi in zip(x_sum, x)]
-             print t_sum, x[0],  v[2]
-             
+
         self.assertEquals(1600, round(t_sum, -1))
         self.assertEquals(80000, round(x_sum[0], -1))
         self.assertEquals(120000, round(x_sum[1], -1))
+        
+    def test_sub_segments(self):
+        from segments import SegmentList, SegmentIterator
+        
+        sl = SegmentList(1, 15000, 1)
+        sl.add_segment([20000], t=400)
+        sl.add_segment([-20000], t=400)
+        
+        for s in sl.iter_subsegments():
+            print s
+            
+        print '======'
+        
+        si = SegmentIterator(sl)
+        print si.positions, si.velocities
+        for ss in si:
+            print ss
+            print si.positions, si.velocities
+        
+        
+    def test_complex_segments(self):
+        from segments import SegmentList
+        
+        n_axes = 1
+        
+        sl = SegmentList(n_axes, 15000, 1)
+        sl.add_segment([20000], t=400)
+
+        print sl
+        
+        for s in sl.iter_subsegments:
+            print s
+            
+        print "==========="
+
+        sl = SegmentList(n_axes, 15000, 1)
+        sl.add_segment([20000], t=400)
+        sl.add_segment([-20000], t=400)
+
+        print sl
+        
+        for s in sl.iter_subsegments:
+            print s
+            
+        print "==========="
+
+        sl = SegmentList(n_axes, 15000, 1)
+        sl.add_segment([-20000], t=400)
+        sl.add_segment([20000], t=400)
+
+        print sl
+        
+        for s in sl.iter_subsegments:
+            print s
         
     def test_sim_steps(self):
         from sim import SimSegment
@@ -235,6 +263,8 @@ class TestPoints(unittest.TestCase):
         plt.show()
         
     def test_plot2(self):
+        """Plot v vs t for a set of segments, both from the endpoints of the segments
+        and a simulation of the step algorithm. """
         from segments import SegmentList
         import pandas as pd 
         import numpy as np
@@ -246,7 +276,6 @@ class TestPoints(unittest.TestCase):
         sl.add_segment([20000,30000,40000,0,0,0], t=400)
         sl.add_segment([20000,30000,40000,0,0,0], t=400)
         
-     
         t_sum = ti_sum = 0
         x_sum = xi_sum = 0
         l = [(0,0,0)]
