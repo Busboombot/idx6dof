@@ -14,12 +14,13 @@ class SerialPacketError(Exception):
 #    byte sync[2] = {'I','D'}; // 2
 #    uint16_t seq = 0; // Packet sequence // 2
 #    uint16_t code = 0; // command code // 2
-#    uint16_t segment_time = 0; // total segment time, in microseconds // 2
-#    uint16_t steps = {0,0,0,0,0,0}; // number of steps // 12
-#    int16_t accel_step = {0,0,0,0,0,0}; // "n" in the Austin algorithm // 12
-#    int16_t intervals = {0,0,0,0,0,0}; // "Cn" in the Austin algorithm // 12   
+#    uint16_t pad = 0; // padding // 2
+#    uint32_t segment_time = 0; // total segment time, in microseconds // 4
+#    int16_t v0[6] = {0,0,0,0,0,0}; // Initial segment velocity, in steps per second // 12
+#    int16_t v1[6] = {0,0,0,0,0,0}; // Final segment velocity // 12
+#    int32_t steps[6] = {0,0,0,0,0,0}; // number of steps in segment // 24
 #    uint32_t crc = 0; // Payload CRC // 4
-#}; // 48
+#}; // 64
 
 class Command(object):
     
@@ -35,27 +36,31 @@ class Command(object):
     msg_fmt = ('<2c'+ # Sync code "ID"
               'H'+ # seq
               'H'+ # code
-              'H'+ # segment_time
-              '6H'+ # number of steps
-              '6H'+ # Aceleration step number
-              '6H'+ # cn, interval times
+              'H'+ # padding
+              'I'+ # segment time
+              '6h'+ # v0 initial velocity
+              '6h'+ # v1 final velocity
+              '6i'+ # steps
               'I') # CRC )
     msg_header =  msg_fmt[:6]
     size = struct.calcsize(msg_fmt)
     
-    def __init__(self, seq, code,  segment_time, 
-                 steps, step_numbers, interval_times, 
+    def __init__(self, 
+                 seq, code, segment_time, 
+                 v0, v1, steps,
                  crc=None, state = None):
                  
         self.code = code
         self.seq = seq
+        self.pad = 0xBEEF
         self.segment_time = segment_time
         
-        self.step_numbers = step_numbers
-        self.interval_times = interval_times
+        self.v0 = v0
+        self.v1 = v1
         self.steps = steps
         
         self.crc = crc
+        
         self.state = state
         
         
@@ -68,32 +73,31 @@ class Command(object):
             return r
 
 
-
     @staticmethod
     def decode(data):
         
         p = self.PopFront(struct.unpack(Command.msg_fmt,data))
         
         _ = p[2]
-        seq, code , segment_time = p[3]
+        seq, code, pad, segment_time = p[4]
+        v0 = p[6]
+        v1 = p[6]
         steps = p[6]
-        accel_steps = p[6]
-        intervals = p[6]
         crc = p[1]
         
-        
-        return Command(seq, code, segment_time, steps, accel_steps, intervals, crc)
+        return Command(seq, code, segment_time, v0, v1, steps, crc)
         
     def encode(self):
         
         msg = (list(self.sync_str) + 
-              [self.seq, self.code, self.segment_time] + 
-              self.steps+ self.step_numbers + self.interval_times)
+              [self.seq, self.code, self.pad, self.segment_time] + 
+              self.v0 + self.v1 + self.steps)
     
         try:
             self.crc = s32tou(binascii.crc32(struct.pack(Command.msg_fmt[:-1], *msg)))
         except:
-            print msg
+           
+            print "CRC Failed for :", msg
             raise
     
         msg.append(self.crc) # Add checksum on
@@ -101,8 +105,9 @@ class Command(object):
         return struct.pack(self.msg_fmt, *msg)
         
     def __repr__(self):
-        return '<Rqst #{} {} {} {} {} {} ({})>'.format(self.seq, self.code, self.step_numbers, 
-                                            self.interval_times, self.steps, self.crc,self.state)
+        return '<Rqst #{} {} {} {} {} {} ({})>'.format(self.seq, self.code, 
+                                                       self.v0, self.v1, self.steps, 
+                                                       self.crc, self.state)
         
       
 class Response(object):
@@ -174,7 +179,6 @@ class Response(object):
     
 
 class ResponseReader(serial.threaded.Protocol):
-    
     
     sync_str_n = struct.pack('<2c',*Command.sync_str)
     
@@ -265,14 +269,5 @@ class Proto(object):
         
     def write(self, data):
         self.proto.write(data)
-        
-    
-        
-
-        
-        
-        
-        
-    
-    
+  
   

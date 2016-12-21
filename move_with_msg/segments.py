@@ -1,5 +1,6 @@
 
 from math import sqrt
+from collections import namedtuple
 
 DEFAULT_ACCELERATION = 50000
 
@@ -7,6 +8,25 @@ def sign(a): return (a>0) - (a<0)
 
 class SegmentError(Exception):
     pass
+
+
+class CantNormalize(Exception):
+    pass
+    
+
+class VrOutOfRangeError(Exception):
+    pass
+
+
+class TimeTooShortError(SegmentError):
+    
+    def __init__(self, message, calc_x=None, t_min= None, x_max=None):
+        super(SegmentError, self).__init__(message)
+        self.calc_x = calc_x
+        self.x_max = x_max
+        self.t_min = t_min
+
+
 
 class SegmentList(object):
     
@@ -19,6 +39,7 @@ class SegmentList(object):
         self.velocities = [0] * self.n_joints
         self.positions = [0] * self.n_joints
         
+        self.v_max = v_max
         self.a_max = a_max
         
         self.d_max = d_max if d_max is not None else self.a_max
@@ -35,24 +56,34 @@ class SegmentList(object):
         
         self.positions = positions
         
+    def add_velocity_segment(self, joints, t=None, x = None):
+        """Add a new segment, with joints expressing velocities"""
+        
+        return self.add_segment([_v*t for _v in joints], t = t)
+        
+        
     def add_segment(self, joints, t=None, v=None):
-        """Add a new segment """
+        """Add a new segment, with joints expressing joint distance """
         assert len(joints) == self.n_joints
         
         # Total length of the vector
         vector_x = sqrt(sum( x**2 for x in joints))
         
         if t is None:
+            if v is None:
+                v = self.v_max
             t = vector_x/v
+                
+        if vector_x/t > self.v_max:
+            t = vector_x/self.v_max
         
         segmentjoints = []
         
         for i,x in enumerate(joints):
             
-            if len(self.segments) == 0:
+            if len(self.segments) == 0:       
                 v0 = self.velocities[i]
             else:
-                
                 # Since we're getting a new segment, we can allow the previous one to 
                 # have a non-zero final velocity. However, if the next segment has an opposite
                 # direction, then we have to keep the 0 final velocity. 
@@ -69,17 +100,32 @@ class SegmentList(object):
 
             # Always give the new segment a 0 final velocity, so if no more segments
             # are added the system will stop. 
-            js = JointSegment(x=x, t=t, v0=v0, v1=0, a=self.a_max, d=self.d_max)
-
+            try:
+                js = JointSegment(x=x, t=t, v0=v0, v1=0, a=self.a_max, d=self.d_max, v_max=self.v_max)
+            except TimeTooShortError as e:
+                # Error b/c the time was too short for the commanded distnace. Insert the errors in the list, 
+                # then check for them later, collecting the minimum time to complete all of the
+                # joint distances
+                js = e
+            
             segmentjoints.append(js)
         
+        # Now look for errors, and determine the min time to complete the segment, 
+        # the we can complete re-run the segment. 
+        if sum( 1 for e in segmentjoints if isinstance(e, TimeTooShortError )) > 0:
+            
+            t_min = max( j.t_min for j in segmentjoints if isinstance(j, TimeTooShortError ))
+            return self.add_segment(joints, t_min)
+           
         if len(self.segments):
             self.segments[-1].normalize_times()
         
-        segment = Segment(segmentjoints, t=t, a=self.a_max, d=self.d_max )
+        segment = Segment(segmentjoints, t=t, a=self.a_max, d=self.d_max, v_max = self.v_max )
         segment.normalize_times()
         
         self.segments.append(segment)
+        
+        return None
         
     def normalize_times(self):
         
@@ -104,14 +150,26 @@ class SegmentList(object):
             out += str(s)
         return out
 
-from collections import namedtuple
 
-SubSegment = namedtuple('SubSegment','t joints'.split())
+class SegmentBuffer(SegmentList):
+        
+        
+    def add_segment(self, joints, t=None, v=None):
+        
+        super(SegmentBuffer, self).add_segment(joints, t, v)
+
+        if len(self) > 1:
+            return self.pop();
+        else:
+            return None
+            
+SubSegment = namedtuple('SubSegment','t x t_seg joints'.split())
 SubSegmentJoint = namedtuple('SubSegmentJoint','x v0 v1'.split())
+
 
 class Segment(object):
     
-    def __init__(self, joints, t, a, d):
+    def __init__(self, joints, t, a, d, v_max):
         
         self.joints = joints
         self.x  = sqrt(sum( j.x**2 for j in joints)) # Vector length
@@ -119,6 +177,7 @@ class Segment(object):
        
         self.a = a
         self.d = d
+        self.v_max = v_max
         
         self.ta = None
         self.td = None
@@ -134,7 +193,7 @@ class Segment(object):
             print "VVVVVV"
             print self
             print "^^^^^^"
-            raise SegmentError("Can't normalize: accl {} + decl {} is greater than total time {}"\
+            raise CantNormalize("Can't normalize: accl {} + decl {} is greater than total time {}"\
             .format(max_ta, max_td, self.t ))
         
         for j in self.joints:
@@ -157,18 +216,18 @@ class Segment(object):
         
             
          if self.ta > 0:
-             yield SubSegment((round(self.ta,3)), 
-                             [ calc_x(self.ta, j.v0, j.vr, j.direction ) for j in self.joints ])
+             yield SubSegment(t_seg=(round(self.ta,3)), x=None, t=None,
+                              joints=[ calc_x(self.ta, j.v0, j.vr, j.direction ) for j in self.joints ])
             
          tr = self.t-self.ta-self.td
             
          if tr > 0:
-             yield SubSegment(tr, 
-                             [ calc_x(tr, j.vr, j.vr, j.direction ) for j in self.joints ])
+             yield SubSegment(t_seg=tr,  x=None, t=None,
+                              joints=[ calc_x(tr, j.vr, j.vr, j.direction ) for j in self.joints ])
         
          if self.td > 0:
-             yield SubSegment((round(self.td,3)), 
-                             [ calc_x(self.td, j.vr, j.v1, j.direction )  for j in self.joints ])
+             yield SubSegment(t_seg=(round(self.td,3)),  x=None, t=None,
+                              joints=[ calc_x(self.td, j.vr, j.v1, j.direction )  for j in self.joints ])
     
     def set_joint(self, i, js):
         
@@ -176,7 +235,7 @@ class Segment(object):
         
     def new_seg(self, x=None, v=None, t=None, v0=0, v1=None):
     
-        js = JointSegment(x=x,v=v,t=t,v0=v0, v1=v1, a=self.a, d=self.d )
+        js = JointSegment(x=x,v=v,t=t,v0=v0, v1=v1, a=self.a, d=self.d, v_max=self.v_max )
     
         
     def __str__(self):
@@ -187,6 +246,7 @@ class Segment(object):
             
         return out
 
+
 class JointSegment(object):
     """ Description of a trapezoidal velocity profile for a segment of motion on 
     a single joint 
@@ -195,11 +255,13 @@ class JointSegment(object):
     
     """
     
-    def __init__(self, x=None, v=None, t=None, v0=0, v1=None, a = DEFAULT_ACCELERATION, d = None):
+    def __init__(self, x=None, v=None, t=None, v0=0, v1=None, v_max = None, a = DEFAULT_ACCELERATION, d = None):
         
         # Acceleration and deceleration
         self.a = float(a)
         self.d = float(d) if d is not None else float(a)
+        
+        self.v_max = float(v_max) # Maximum allowed velocity
         
         #Each segment must have a consistent, single-valued accceleration
         if sign(v0)*sign(v1) < 0: # both signs are nonzero and opposite
@@ -241,36 +303,39 @@ class JointSegment(object):
             assert False, (x,v,t)
         
         
+        
         self.vrmax = None # Max v achievable for acel from v0 and decel to v1
         self.xmax = None # Max
         self.xmin = None
         self.ts = None # Time at vrmax
         
-
         self.vr = None # Run velocity
         self.ta = None # Acceleration time, from start of seg to end of accelerations
         self.td = None # Decleration time, from start of deceleration to end of segment
-        
+
         self.calc_vr()
+
+
 
     def calc_vr(self):
         
         self.ta, self.td, self.vr, new_v1, self.ts, self.vrmax, self.xmin, calc_x, self.xmax = \
             self._calc_vr(self.x, self.t, self.v0, self.v1, self.a, self.d)
         
-        
-        if self.x != 0 and (calc_x - self.x) / self.x > .01:
+        if self.x != 0 and abs(calc_x - self.x) / abs(self.x) > .01:
             diff = (calc_x - self.x)
             r_err =  (calc_x - self.x) / self.x
-            raise SegmentError("Calc x is {}, expected {}, diff {}, rel err {}".format(calc_x, self.x, diff, r_err))
+            raise VrOutOfRangeError("Calc x is {}, expected {}, diff {}, rel err {}"\
+                                   .format(calc_x, self.x, diff, r_err))
             
         assert int(self.xmin) <= int(calc_x) <= int(self.xmax), (self.xmin,calc_x,self.xmax)
-        
+
         self.v1 = new_v1
+        
         
     @staticmethod
     def calc_trap_area(t,vr, v1, v0, ta, td, a, d):
-        """Find Vr with a binary search. There is probably an analytical solution, 
+        """Find x for Vr for use with a binary search. There is probably an analytical solution, 
            but I'm tired of trying to figure it out. The function isn't continuous, so
            even an analytical solution would probably have some if statements in it."""
 
@@ -284,9 +349,10 @@ class JointSegment(object):
               .5*td*(v1+vr) + # Area under decel trapezoid
               vr*(t-ta-td)) # Area under constant v section
       
+
         return x, ta, td, v1
         
-        
+
     def _calc_vr(self, x,t,v0,v1, a, d):
         """Computue the run velocity, acceleration break time, and deceleration break time
         for other trapezoidial profile parameters. """
@@ -294,12 +360,13 @@ class JointSegment(object):
         
         ta_in = self.ta
         td_in = self.td
-        v1 = self.v1
         
-
-        if self.v1 is None:
+        assert t != 0
+        
+        if self.v1 is None: # 
 
             vrmax = a*t+v0 # Accelerate all the way through the segment
+            vrmax = min(vrmax, self.v_max)
             
             xmax = .5 * a * t * t + v0
             xmin = .5*v0**2/a
@@ -307,13 +374,61 @@ class JointSegment(object):
             td_in = 0
             v1 = 0
         else:
-
-            ts = (d*t + v1 - v0) / 2*a # Point where acel line from v0 meets decel line from v1
+            v1 = self.v1
+            
+            ts = (d*t + v1 - v0) / (2*a) # Point where acel line from v0 meets decel line from v1
+            
+            assert ts <= t, (ts, t, v1, v0, a, d)
             
             # Calc vrmax from acceleration from v0 + decel from v1, and average
             vrmax = (v0+v1+a*ts+a*(t-ts)) / 2.
-            xmax = .5*ts*(v0+vrmax) + .5 * (t-ts)*(v1+vrmax)
+            
+            
+            if vrmax > self.v_max:
+                # When vrmax > x_max, the maximum distnace shape won't be a triangle profile, 
+                # so the triangle equation wont work
+                xmax,_,_,_ = self.calc_trap_area(t=t, vr=self.v_max, v0=v0,v1=v1, a=a,d=d, ta=None, td=None)
+                vrmax = self.v_max
+                assert(xmax > 0), (xmax,t, v0, v1)
+            else:
+                xmax = .5*ts*(v0+vrmax) + .5 * (t-ts)*(v1+vrmax)
+                assert(xmax > 0), (xmax,ts, vrmax, t, v0, v1)
+                
             xmin = .5*v0**2/a + .5*v1**2/d
+
+
+        if round(x,0) > round(xmax,0): # Error, time is not long enough to cover commanded distance
+            
+            #print "!!!! t={} x={} xmax={}, vrmax={}, self.v_max={}".format(t, int(x), int(xmax), vrmax, self.v_max)
+            
+            # calculate the minimum distance for accelerating to max velocity, then
+            # back down to v1
+            ta = (self.v_max-v0)/a
+            td = (self.v_max)/d
+            x1 = ( .5*ta*(v0+self.v_max) + # Area under accel trapezoid
+                  .5*td*(v1+self.v_max) ) # Area under decel trapezoid
+            
+            # Any remaining distance to cover will be at constant v_max
+            if x > x1:
+                xr = x - x1
+                tr = xr / self.v_max
+            else:
+                tr = 0 
+                xr = 0
+            
+            xmin_vmax = x1+xr
+            tmin_vmax = ta+td+tr
+            
+            #print 'XXX', t, xmin_vmax, tmin_vmax
+            
+            raise TimeTooShortError(
+                "Commanded distance {} is larger that xmax {} for given time of {}s "\
+                .format(self.x, xmax, t),
+                t_min = tmin_vmax
+            )
+
+        if round(x,0) < round(xmin,0):
+            raise SegmentError("Commanded distance {} is smaller that xmin {} for given time ".format(self.x, xmin))
 
         low = 0
         high = int(math.ceil(vrmax))
@@ -333,57 +448,13 @@ class JointSegment(object):
                 
         if td == 0:
             v1 = vr
+
 
         return round(ta,4), round(td,4), round(vr,4), v1, ts, vrmax, xmin, x_m, xmax
  
     def _calc_min_t(self, x,v0,v1, a, d):
-        """Computue the run velocity, acceleration break time, and deceleration break time
-        for other trapezoidial profile parameters. """
-        import math
-        
-        ta_in = self.ta
-        td_in = self.td
-        v1 = self.v1
-        
-        if calc_f is None:
-            if self.v1 is None:
+        """Compute the minimum time to travel the distance. This will be a triangular """
 
-                vrmax = a*t+v0 # Accelerate all the way through the segment
-                
-                xmax = .5 * a * t * t + v0
-                xmin = .5*v0**2/a
-                ts = float('nan')
-                td_in = 0
-                v1 = 0
-            else:
-
-                ts = (d*t + v1 - v0) / 2*a # Point where acel line from v0 meets decel line from v1
-                
-                # Calc vrmax from acceleration from v0 + decel from v1, and average
-                vrmax = (v0+v1+a*ts+a*(t-ts)) / 2.
-                xmax = .5*ts*(v0+vrmax) + .5 * (t-ts)*(v1+vrmax)
-                xmin = .5*v0**2/a + .5*v1**2/d
-    
-        low = 0
-        high = int(math.ceil(vrmax))
-
-        while high - low > .00001:
-    
-            vr = (low + high) / 2.0
-
-            x_l, _, _  , v1 = self.calc_trap_area(t, low,  v1, v0, ta_in, td_in, a, d)
-            x_m, ta, td, v1 = self.calc_trap_area(t, vr,   v1, v0, ta_in, td_in, a, d)
-            #x_h, _, _  , v1 = self.calc_trap_area(t, high, v1, v0, ta_in, td_in, a, d)
-    
-            if round(x_l,5) <= x <= round(x_m,5):
-                high = vr
-            else:
-                low = vr
-                
-        if td == 0:
-            v1 = vr
-
-        return round(ta,4), round(td,4), round(vr,4), v1, ts, vrmax, xmin, x_m, xmax
  
     @property
     def dir_x(self):
@@ -411,10 +482,10 @@ class JointSegment(object):
         .format(self.t, self.dir_v0, self.ta, self.dir_vr, self.dir_v1, self.td, self.xmin * self.direction, self.dir_x, 
         self.xmax * self.direction, self.vrmax *self.direction, self.ts)
         
+
 class SegmentIterator(object):
     
-    
-    def __init__(self, segment_list, positions = None):
+    def __init__(self, segment_list, positions = None, time = 0):
         
         self.segment_list = segment_list
         
@@ -422,9 +493,10 @@ class SegmentIterator(object):
         
         self.sub_segments = None
         
+        self.time = time
+        
         self.positions = positions if positions is not None else [0]*segment_list.n_joints
         self.velocities = positions if positions is not None else [0]*segment_list.n_joints
-        
         
     def __iter__(self):
         return self
@@ -434,6 +506,7 @@ class SegmentIterator(object):
         
     def __next__(self):
         
+        from sim import SimSegment
         
         if self.current_segment is None:
             
@@ -448,15 +521,18 @@ class SegmentIterator(object):
         
         self.positions = [ sum(e) for e in zip(self.positions, [ssj.x for ssj in ss.joints])]
         self.velocities = [ssj.v1 for ssj in ss.joints]
+        self.time += ss.t_seg
+
         
         if len(self.sub_segments) == 0:
             self.current_segment = None
-            
-            
-        return ss
+        
+        # Can't modify a named tuple
+        return SubSegment(t_seg=ss.t_seg, t=self.time, x=self.positions,
+                          joints=ss.joints)
             
         
-        
+
         
         
     

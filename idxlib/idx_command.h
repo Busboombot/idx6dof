@@ -28,14 +28,14 @@ struct command {
     byte sync[2] = {'I','D'}; // 2
     uint16_t seq = 0; // Packet sequence // 2
     uint16_t code = 0; // command code // 2
-    uint16_t segment_time = 0; // total segment time, in microseconds // 2
+    uint16_t pad = 0xBEEF; // padding // 2
+    uint32_t segment_time = 0; // total segment time, in microseconds // 4
+    int16_t v0[6] = {0,0,0,0,0,0}; // Initial segment velocity, in steps per second // 12
+    int16_t v1[6] = {0,0,0,0,0,0}; // Final segment velocity // 12
+    int32_t steps[6] = {0,0,0,0,0,0}; // number of steps in segment // 24
 
-    uint16_t steps[6] = {0,0,0,0,0,0}; // number of steps // 12
-    int16_t accel_step[6] = {0,0,0,0,0,0}; // "n" in the Austin algorithm // 12
-    int16_t intervals[6] = {0,0,0,0,0,0}; // "Cn" in the Austin algorithm // 12
-    
     uint32_t crc = 0; // Payload CRC // 4
-}; // 48
+}; // 64
 
 
 struct response {
@@ -48,7 +48,7 @@ struct response {
     uint16_t max_char_read_time; // 2
     uint16_t min_loop_time; // 2
     uint16_t max_loop_time; // 2
-    uint16_t padding; // 2
+    uint16_t padding = 0xBEEF; // 2
     // 20 
     int16_t encoder_diffs[N_AXES] = {0,0,0,0,0,0}; // 12
     int32_t steps[N_AXES] = {0,0,0,0,0,0};  // 24

@@ -36,11 +36,13 @@ freq_map = [
    mkmap(0, 1, 1, 15000 ) 
 ] 
 
-
-
 class Joystick(object):
     
     def __init__(self, t = None):
+        """Read the pygame joystick and yield frequencies, in steps per second. 
+        
+        param t: minimum frequency at which to yield a result, even if there are no changes. 
+        """
         import pygame
 
         pygame.init()

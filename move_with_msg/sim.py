@@ -4,6 +4,10 @@ from math import sqrt
 def sign(a): return (a>0) - (a<0)
 
 
+N_MAX = 2**31
+MIN_A = 10 # less than 10 S/s^2 is forced to zero. Limits the max value of n
+# For IDX robot, v has a range of +/- 15K
+# a has range of about -50K to 50K
 class SimSegment(object):
     """A step segment for simulating the step interval algorithm. """
     
@@ -13,20 +17,24 @@ class SimSegment(object):
         # Cn is the number of microseconds between  steps
         # n is acceleration step number 
         
-        if a == 0:
-            n = 0
-            cn  = 1000000. / v0
-        elif v0 == 0:
+        if v0 == 0 and a == 0:
+            return N_MAX, N_MAX
+        
+        if v0 == 0 :
             n = 0 
             cn = 0.676 * sqrt(2.0 / abs(a)) * 1000000.0; # c0 in Equation 15
         else:
-            n = int((v0 * v0) / (2.0 * a)) # Equation 16
+            try:
+                n = int((v0 * v0) / (2.0 * a)) # Equation 16
+            except ZeroDivisionError:
+                n = N_MAX * sign(v0)
+                
             cn = 1000000. / v0
         
         #if sign(a) != sign(v0): # Decelerating
         #    n = -n
         
-        return n, cn
+        return min(n, N_MAX), cn
 
     @staticmethod
     def next_params(n, cn):

@@ -19,7 +19,6 @@ void toggle(int pin){
     togglepins[pin] = 1;
     fastSet(pin);
   }
-  
 }
 
 /*
@@ -39,7 +38,6 @@ void init_board(){
   pinMode(15, OUTPUT); // message tick
   
 }
-
 
 int main(void) {
   
@@ -78,7 +76,7 @@ int main(void) {
      */
     
     if (active_axes == 0 && msg != 0){
-      Serial.println("Clear message ");
+      Serial.print("Clear message ");Serial.println(msg->seq);
       cbuf.sendDone(*msg);
       cbuf.resetLoopTimes();
       //cbuf.setPositions(positions);
@@ -96,13 +94,17 @@ int main(void) {
     if( cbuf.size() > 0 && msg == 0 ){
      
       msg = cbuf.getMessage();
-      Serial.print("Recv message: #");
-      Serial.print(msg->seq); Serial.print(" ");
-      Serial.print(msg->code); Serial.print(" crc=");
-      Serial.print(msg->crc); Serial.println(" ");
+      Serial.print("Start: #"); Serial.print(msg->seq); 
+      Serial.print(" code="); Serial.print(msg->code);
+      Serial.print(" v0="); Serial.print(msg->v0[0]);
+      Serial.print(" v1="); Serial.print(msg->v1[0]);
+      Serial.print(" x="); Serial.print(msg->steps[0]);
+      
+      Serial.print(" crc=");Serial.print(msg->crc); 
+      Serial.println(" ");
       
       for (int axis = 0; axis < N_AXES; axis ++){
-        steppers[axis].setParams(msg->accel_step[axis], msg->intervals[axis], msg->steps[axis]);
+        steppers[axis].setParams(msg->segment_time, msg->v0[axis], msg->v1[axis], msg->steps[axis]);
       }
     }
     
