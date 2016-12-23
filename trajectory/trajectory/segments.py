@@ -1,10 +1,10 @@
 
 from math import sqrt
 from collections import namedtuple
+from util import sign
 
 DEFAULT_ACCELERATION = 50000
 
-def sign(a): return (a>0) - (a<0)
 
 class SegmentError(Exception):
     pass

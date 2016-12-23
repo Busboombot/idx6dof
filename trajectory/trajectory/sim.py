@@ -1,7 +1,7 @@
 
 from math import sqrt
+gtom util import sign
 
-def sign(a): return (a>0) - (a<0)
 
 
 N_MAX = 2**31

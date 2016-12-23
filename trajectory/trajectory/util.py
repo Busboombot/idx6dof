@@ -1,6 +1,8 @@
 
 
 
+def sign(a): return (a>0) - (a<0)
+
 def _find_getch():
     try:
         import termios

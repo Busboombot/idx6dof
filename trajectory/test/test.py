@@ -9,8 +9,7 @@ import unittest
 
 class TestPoints(unittest.TestCase):
     
- 
-                
+   
     def test_joy_move(self):
         from segments import SegmentList, SegmentIterator, SegmentBuffer
         from joystick import Joystick
