@@ -15,16 +15,6 @@ class TestPoints(unittest.TestCase):
         from segments import SegmentList, SegmentIterator, SegmentBuffer
         from joystick import Joystick
         from time import sleep, time
-
-
-        last_time = time()
-        for e in Joystick(.25):
-            
-            dt = time()-last_time
-            if dt > .25:
-                last_time = time()
-                print ','.join([str(dt)]+[str(v) for v in e])
-
         
         def get_joy():
             while True:
@@ -39,34 +29,30 @@ class TestPoints(unittest.TestCase):
             seq = 0
             
             while True:
-                sleep(.2)
+            
                 e = get_joy()
 
                 dt = time()-last_time
 
-                if dt >= .25 and len(proto)<=1:
+                if dt >= .20 and len(proto)<=2:
                     last_time = time()
                     
-                    #velocities = [ (seq%5)*100] * 6
-                    
-                    velocities = [abs(v) for v in e]+[0,0]
+                    velocities = e+[0,0]
                       
-                    x = [ abs(v0+v1)/(2*dt) for v0, v1 in zip(last_velocities, velocities) ]
+                    x = [ .5*(v0+v1)*dt  for v0, v1 in zip(last_velocities, velocities) ]
           
                     msg = Command(seq, 10, dt*1e6, last_velocities, velocities, x)
                        
                     proto.write(msg)
-                                
-                    print dt, msg.segment_time, msg.v1[0], msg.steps[0]
-                    
+
                     seq += 1
                     
                     last_velocities = velocities
-                elif dt < .25:
-                    sleep(.25-dt)
+                elif dt < .20:
+                    sleep(.20-dt)
 
                 
-    def test_rec_joy_moves(self):
+    def test_rec_joy_moves_cmd(self):
         from segments import SegmentList, SegmentIterator
         import time
         import csv
@@ -100,6 +86,35 @@ class TestPoints(unittest.TestCase):
                 last_velocities = velocities
                 
                 while proto.wait()>1:
+                    pass
+
+    def test_rec_joy_moves_sl(self):
+        from segments import SegmentList, SegmentIterator
+        import time
+        import csv
+        
+        with open('joy_moves.csv') as f:
+            moves = list(csv.reader(f))
+
+        n_axes = 6
+        
+        sl = SegmentList(n_axes, 1000, 15000)
+        for m in moves:
+                sl.add_velocity_segment([float(e) for e in [m[1],m[2],m[3],0,0,0]],t=float(m[0]))
+
+        with Proto('/dev/cu.usbmodemFD1431') as proto:
+            
+            for i, s in enumerate(SegmentIterator(sl)):
+
+                msg = Command(i, 10, int(s.t_seg*1000000), 
+                            [ int(sj.v0) for sj in s.joints ],
+                            [ int(sj.v1) for sj in s.joints ],
+                            [ int(sj.x) for sj in s.joints ])
+                       
+                proto.write(msg)
+                print(msg)
+
+                while proto.wait()>4:
                     pass
 
     def test_move_commands(self):

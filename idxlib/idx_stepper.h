@@ -124,7 +124,7 @@ public:
         }
         
         if (stepsLeft > 0){
-            if (true){
+            if (false){
                 Serial.print("Setting "); Serial.print(now); 
                 Serial.print(" "); Serial.print(n); 
                 Serial.print(" "); Serial.println(cn);
@@ -162,7 +162,7 @@ public:
             
             position += direction;
 
-            if (stepsLeft == 0 and true){
+            if (stepsLeft == 0 and false){
                 Serial.print("Done    "); Serial.print(now); 
                 Serial.print(" "); Serial.print(n); 
                 Serial.print(" ");Serial.print(cn);
