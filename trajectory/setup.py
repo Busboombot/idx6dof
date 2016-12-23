@@ -23,12 +23,7 @@ if sys.argv[-1] == 'publish':
 with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as f:
     readme = f.read()
 
-# Avoiding import so we don't execute __init__.py, which has imports
-# that aren't installed until after installation.
-_meta = imp.load_source('_meta', 'trajectory/__meta__.py')
-
 packages = find_packages()
-
 
 install_requires = parse_requirements('requirements.txt', session=uuid.uuid1())
 
@@ -48,14 +43,14 @@ setup(
     long_description=readme,
     packages=packages,
     install_requires=[x for x in reversed([str(x.req) for x in install_requires])],
-    author=_meta.__author__,
+    author="Eric Busboom",
     author_email='eric@civicknowledge.com',
     url='https://github.com/CivicKnowledge/trajectory.git',
     license='MIT',
     classifiers=classifiers,
     entry_points={
         'console_scripts': [
-            'joystick=trajectory.cli:joystick'
+            'robot_joystick=trajectory.cli:run_joystick'
         ],
     },
 )

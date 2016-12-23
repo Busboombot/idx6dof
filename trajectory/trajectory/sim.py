@@ -1,6 +1,6 @@
 
 from math import sqrt
-gtom util import sign
+from util import sign
 
 
 

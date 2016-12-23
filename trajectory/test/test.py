@@ -1,7 +1,9 @@
-from planning import MotionPlanner, TrajectoryPoint
+
 from tabulate import tabulate
-from proto import Proto, Command, Response
-from sim import SimSegment
+from trajectory import Proto, Command, Response, SimSegment,  \
+                       SegmentList, SegmentIterator, SegmentBuffer, \
+                       Joystick
+from time import sleep, time
 
 import unittest
 
@@ -11,9 +13,8 @@ class TestPoints(unittest.TestCase):
     
    
     def test_joy_move(self):
-        from segments import SegmentList, SegmentIterator, SegmentBuffer
-        from joystick import Joystick
-        from time import sleep, time
+
+        
         
         def get_joy():
             while True:

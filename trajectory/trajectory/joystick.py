@@ -12,6 +12,8 @@ def mkmap(r1,r2, d1,d2):
 
     def range(x):
         
+        x = round(x,2)
+        
         if x < r1:
             x = r1
         elif x > r2:
@@ -20,20 +22,17 @@ def mkmap(r1,r2, d1,d2):
         s = float(x-r1)/float(r)
         v =  d1+(s*d)
         
-        if v< 90:
-            return 0
-        
         return v
     
     return range
     
 # Different maps for each max speed
 freq_map = [
-   mkmap(0, 1, 70, 600 ),
-   mkmap(0, 1, 70, 3000 ),
-   mkmap(0, 1, 50, 8000 ),
-   mkmap(0, 1, 50, 11000 ), 
-   mkmap(0, 1, 1, 15000 ) 
+   mkmap(0, 1, 0, 600 ),
+   mkmap(0, 1, 0, 3000 ),
+   mkmap(0, 1, 0, 8000 ),
+   mkmap(0, 1, 0, 11000 ), 
+   mkmap(0, 1, 0, 15000 ) 
 ] 
 
 
@@ -61,6 +60,9 @@ class Joystick(object):
             #print [j.get_axis(k) for k in range(j.get_numaxes())]
             #print [j.get_button(z) for z in range(j.get_numbuttons())]
             
+        
+        
+            
         if t:
             self.interval = int(t * 1000)
         else:
@@ -73,7 +75,7 @@ class Joystick(object):
 
         pygame.time.set_timer(pygame.USEREVENT, self.interval)
 
-        last = [None, None, None, None]
+        last = [None, None, None, None, None, None]
 
         while True:
         
@@ -95,19 +97,22 @@ class Joystick(object):
 
                 for i, j in enumerate(self.joysticks):
                 
-                    buttons =  [z  for z in range(j.get_numbuttons()) if j.get_button(z) ]
+                    buttons =  [z  for z in range(j.get_numbuttons()) if j.get_button(z) ] 
               
                     try:
                         m = freq_map[buttons[0]+1]
                     except:
                         m = freq_map[0]
                 
-                
-                    last =  [ copysign(m(abs(j.get_axis(axis))),j.get_axis(axis)) for axis in range(j.get_numaxes())]
-                
+                    hats = [ j.get_hat( i ) for i in range(j.get_numhats()) ]
+
+
+                    last =  [ copysign(m(abs(j.get_axis(axis))),j.get_axis(axis)) 
+                            for axis in range(j.get_numaxes())] + \
+                            [ copysign(m(abs(h*.5)),h) for h in hats[0] ]
+                           
                     yield last
                 
-
 
     def __del__(self):
         
@@ -115,18 +120,6 @@ class Joystick(object):
   
 
    
-  
-if __name__ == "__main__":
-    
-    # Run the joystick in a loop and write values to a file. 
-    
-    import sys
-    
-    with open(sys.argv[1], "wb") as f:
-        for values in Joystick(.5):
-            f.write(','.join(str(e) for e in values))
-            f.write('\n')
-            f.seek(0)
 
     
 
