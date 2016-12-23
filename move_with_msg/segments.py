@@ -207,7 +207,7 @@ class Segment(object):
             
     def __iter__(self):
 
-         self.normalize_times()
+         #self.normalize_times()
         
          def calc_x(t, v0, v1, dir):
              x = t * (v0+v1)/2.

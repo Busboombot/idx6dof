@@ -29,19 +29,21 @@ def mkmap(r1,r2, d1,d2):
     
 # Different maps for each max speed
 freq_map = [
-   mkmap(0, 1, 70, 700 ),
+   mkmap(0, 1, 70, 600 ),
    mkmap(0, 1, 70, 3000 ),
    mkmap(0, 1, 50, 8000 ),
    mkmap(0, 1, 50, 11000 ), 
    mkmap(0, 1, 1, 15000 ) 
 ] 
 
+
 class Joystick(object):
     
     def __init__(self, t = None):
-        """Read the pygame joystick and yield frequencies, in steps per second. 
+        """Read the pygame joystick and yield frequency values for the stepper motors. 
         
-        param t: minimum frequency at which to yield a result, even if there are no changes. 
+        param t: minimum frequency, in seconds,  at which to yield a result, even if there are no changes.
+        Defaults to 1 
         """
         import pygame
 
@@ -75,36 +77,35 @@ class Joystick(object):
 
         while True:
         
-            self.g_keys = pygame.event.get()
+            event = pygame.event.wait()
 
-            for event in self.g_keys:
-                if (event.type == KEYDOWN and event.key == K_ESCAPE):
-                    pygame.quit()
-                    return
+            if (event.type == KEYDOWN and event.key == K_ESCAPE):
+                pygame.quit()
+                return
 
-                elif (event.type == QUIT):
-                    pygame.quit()
-                    return
-                    
-                elif (event.type == pygame.USEREVENT):
-                    
+            elif (event.type == QUIT):
+                pygame.quit()
+                return
+                
+            elif (event.type == pygame.USEREVENT):
+                
+                yield last
+                
+            else:
+
+                for i, j in enumerate(self.joysticks):
+                
+                    buttons =  [z  for z in range(j.get_numbuttons()) if j.get_button(z) ]
+              
+                    try:
+                        m = freq_map[buttons[0]+1]
+                    except:
+                        m = freq_map[0]
+                
+                
+                    last =  [ copysign(m(abs(j.get_axis(axis))),j.get_axis(axis)) for axis in range(j.get_numaxes())]
+                
                     yield last
-                    
-                else:
-
-                    for i, j in enumerate(self.joysticks):
-                    
-                        buttons =  [z  for z in range(j.get_numbuttons()) if j.get_button(z) ]
-                  
-                        try:
-                            m = freq_map[buttons[0]+1]
-                        except:
-                            m = freq_map[0]
-                    
-                    
-                        last =  [ copysign(m(abs(j.get_axis(axis))),j.get_axis(axis)) for axis in range(j.get_numaxes())]
-                    
-                        yield last
                 
 
 
@@ -112,9 +113,20 @@ class Joystick(object):
         
         pygame.display.quit()
   
+
+   
+  
 if __name__ == "__main__":
-    for e in Joystick():
-        print e
+    
+    # Run the joystick in a loop and write values to a file. 
+    
+    import sys
+    
+    with open(sys.argv[1], "wb") as f:
+        for values in Joystick(.5):
+            f.write(','.join(str(e) for e in values))
+            f.write('\n')
+            f.seek(0)
 
     
 

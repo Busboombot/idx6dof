@@ -9,46 +9,98 @@ import unittest
 
 class TestPoints(unittest.TestCase):
     
-
-    
-    def test_joy(self):
-        
+ 
+                
+    def test_joy_move(self):
+        from segments import SegmentList, SegmentIterator, SegmentBuffer
         from joystick import Joystick
         from time import sleep, time
-        from joystick import Joystick
-        
-        last = time()
+
+
+        last_time = time()
         for e in Joystick(.25):
             
-            if last + .20 < time():
+            dt = time()-last_time
+            if dt > .25:
+                last_time = time()
+                print ','.join([str(dt)]+[str(v) for v in e])
+
+        
+        def get_joy():
+            while True:
+                with open('/tmp/joystick') as f:
+                    return [float(e) for e in f.readline().split(',')]
+
+          
+        with Proto('/dev/cu.usbmodemFD1431') as proto:
             
-                dt = time() - last
-                last = time()
+            last_time = time()
+            last_velocities = [0]*6
+            seq = 0
+            
+            while True:
+                sleep(.2)
+                e = get_joy()
+
+                dt = time()-last_time
+
+                if dt >= .25 and len(proto)<=1:
+                    last_time = time()
+                    
+                    #velocities = [ (seq%5)*100] * 6
+                    
+                    velocities = [abs(v) for v in e]+[0,0]
+                      
+                    x = [ abs(v0+v1)/(2*dt) for v0, v1 in zip(last_velocities, velocities) ]
+          
+                    msg = Command(seq, 10, dt*1e6, last_velocities, velocities, x)
+                       
+                    proto.write(msg)
+                                
+                    print dt, msg.segment_time, msg.v1[0], msg.steps[0]
+                    
+                    seq += 1
+                    
+                    last_velocities = velocities
+                elif dt < .25:
+                    sleep(.25-dt)
+
                 
-                print e
-            
-    def test_simple_messages(self):
+    def test_rec_joy_moves(self):
+        from segments import SegmentList, SegmentIterator
         import time
+        import csv
         
-        print ("Command size", Command.size)
-        print ("Response Size", Response.size)
+        with open('joy_moves.csv') as f:
+            moves = list(csv.reader(f))
+
+        n_axes = 6
         
-        v0    = [0,0,0,0,0,0]
-        v1    = [0,0,0,0,0,0]
-        steps = [0,0,0,0,0,0]
+        sl = SegmentList(n_axes, 800, 15000)
+        for m in moves:
+                sl.add_velocity_segment([float(e) for e in [m[1],0,m[2],0,0,0]],
+                 t=float(m[0]))
+
+        last_velocities = [0]*n_axes
         
         with Proto('/dev/cu.usbmodemFD1431') as proto:
             
-            msg = Command(1, 10, 3*1, null_axes, null_axes, null_axes)
-            proto.write(msg)
-            print(msg)
-            
-            msg = Command(2, 10, 3*1, null_axes, null_axes, null_axes)
-            proto.write(msg)
-            print(msg)
-        
-            while len(proto.sent) > 0:
-                time.sleep(.01)
+            for seq, m in enumerate(moves):
+                
+                dt = float(m[0])
+                velocities = [float(v)for v in [m[1],m[1],m[2],0,0,0]]
+              
+                x = [ .5*(v0+v1)*dt  for v0, v1 in zip(last_velocities, velocities) ]
+  
+                msg = Command(seq, 10, dt*1e6, last_velocities, velocities, x)
+           
+                proto.write(msg)
+                print(msg)
+                
+                last_velocities = velocities
+                
+                while proto.wait()>1:
+                    pass
 
     def test_move_commands(self):
         from segments import SegmentList, SegmentIterator
@@ -56,12 +108,17 @@ class TestPoints(unittest.TestCase):
           
         n_axes = 6
         
-        sl = SegmentList(n_axes, 750, 5000)
+        sl = SegmentList(n_axes, 800, 15000)
         for i in range(10):
-            sl.add_velocity_segment([700,500,250,0,0,0], t=2)
-            sl.add_velocity_segment([-700,-500,-250,0,0,0], t=2)
-
+            for j in range(1,4):
+                sl.add_velocity_segment([j*200,0,0,0,0,0], t=1)
+                sl.add_velocity_segment([0,j*200,0,0,0,0], t=1)
+                sl.add_velocity_segment([0,0, j*200,0,0,0], t=1)
+                sl.add_velocity_segment([0,j*200,j*200,0,0,0], t=1)
+                sl.add_velocity_segment([j*200,j*200, j*200,0,0,0], t=1)
+                
         print sl
+
 
         with Proto('/dev/cu.usbmodemFD1431') as proto:
             for i, s in enumerate(SegmentIterator(sl)):
@@ -74,12 +131,9 @@ class TestPoints(unittest.TestCase):
                 proto.write(msg)
                 print(msg)
 
-                if len(proto.sent) > 5:
-                    while len(proto.sent) > 2:
-                        time.sleep(.01)  
-                else:
-                    time.sleep(0.1)
-                
+                while proto.wait()>1:
+                    pass
+
 
     def test_messages(self):
         import time
@@ -137,8 +191,7 @@ class TestPoints(unittest.TestCase):
         sl = SegmentList(1, 15000, 1)
         sl.add_velocity_segment([0], t=400)
         sl.add_velocity_segment([0], t=400)
-        
-            
+           
         for ss in sl.iter_subsegments():
             print ss
             
@@ -232,6 +285,18 @@ class TestPoints(unittest.TestCase):
         ss = SimSegment(0,67,6667)
         #for x in ss:
         #    prss(ss)
+        
+    def test_sim_params(self):
+        from sim import SimSegment 
+        
+    
+        ss = SimSegment(200,300, t=.5)
+        print ss
+        print ss.run_out()
+        print '---'
+        ss = SimSegment(300,400, t=.5)
+        print ss
+        print ss.run_out()
             
     def test_sim(self):
         from sim import SimSegment

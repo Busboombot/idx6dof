@@ -8,18 +8,6 @@
 #define fastSet(pin) (digitalPinToPort(pin)->PIO_SODR |= digitalPinToBitMask(pin) ) 
 #define fastClear(pin) (digitalPinToPort(pin)->PIO_CODR |= digitalPinToBitMask(pin) )
 
-int togglepins[56] = {0};
-
-void toggle(int pin){
-
-  if (togglepins[pin]){
-    togglepins[pin] = 0;
-    fastClear(pin);
-  } else {
-    togglepins[pin] = 1;
-    fastSet(pin);
-  }
-}
 
 /*
  * Initialize the board, serial ports, etc. 
@@ -50,20 +38,18 @@ int main(void) {
   IDXCommandBuffer cbuf(SerialUSB);
 
   IDXStepper steppers[N_AXES] = {
-    IDXStepper(2,3), 
-    IDXStepper(4,5), 
-    IDXStepper(6,7), 
-    IDXStepper(8,9), 
-    IDXStepper(10,11), 
-    IDXStepper(12,13)
+    IDXStepper(0,2,3), 
+    IDXStepper(1,4,5), 
+    IDXStepper(2,6,7), 
+    IDXStepper(3,8,9), 
+    IDXStepper(4,10,11), 
+    IDXStepper(5,12,13)
   };
 
   Serial.print("Command size :");Serial.println(sizeof(struct command));
   Serial.print("Response size:");Serial.println(sizeof(struct response));
-
+  
   for (;;) {
-
-    toggle(14);
 
     cbuf.startLoop(); // Start diagnostic times. 
 
@@ -76,7 +62,7 @@ int main(void) {
      */
     
     if (active_axes == 0 && msg != 0){
-      Serial.print("Clear message ");Serial.println(msg->seq);
+      //Serial.print("Clear message ");Serial.println(msg->seq);
       cbuf.sendDone(*msg);
       cbuf.resetLoopTimes();
       //cbuf.setPositions(positions);
@@ -90,21 +76,23 @@ int main(void) {
      * get the message and start working on it. 
      */
 
-    
     if( cbuf.size() > 0 && msg == 0 ){
      
       msg = cbuf.getMessage();
-      Serial.print("Start: #"); Serial.print(msg->seq); 
-      Serial.print(" code="); Serial.print(msg->code);
-      Serial.print(" v0="); Serial.print(msg->v0[0]);
-      Serial.print(" v1="); Serial.print(msg->v1[0]);
-      Serial.print(" x="); Serial.print(msg->steps[0]);
-      
-      Serial.print(" crc=");Serial.print(msg->crc); 
-      Serial.println(" ");
+      if (false){
+        Serial.print("Start: ql="); Serial.print(cbuf.size()); 
+        Serial.print(" Mesg#"); Serial.print(msg->seq); 
+        Serial.print(" t="); Serial.print(msg->segment_time);
+        Serial.print(" code="); Serial.print(msg->code);
+        Serial.print(" v0="); Serial.print(msg->v0[0]);
+        Serial.print(" v1="); Serial.print(msg->v1[0]);
+        Serial.print(" x="); Serial.print(msg->steps[0]);
+        Serial.print(" crc=");Serial.print(msg->crc); 
+        Serial.println(" ");
+      }
       
       for (int axis = 0; axis < N_AXES; axis ++){
-        steppers[axis].setParams(msg->segment_time, msg->v0[axis], msg->v1[axis], msg->steps[axis]);
+        steppers[axis].setParams(micros(), msg->segment_time, msg->v0[axis], msg->v1[axis], msg->steps[axis]);
       }
     }
     
@@ -116,7 +104,6 @@ int main(void) {
       steppers[axis].clearStep();
     }
     
-
     /*
      * Iterate over all of the axes and step them when their time comes up. 
      */
@@ -124,11 +111,9 @@ int main(void) {
     active_axes = 0;
     now = micros();
     for (int axis = 0; axis < N_AXES; axis ++){
-
       if(steppers[axis].step(now)){
          active_axes ++;
       }
-      
     }
 
     cbuf.endLoop();

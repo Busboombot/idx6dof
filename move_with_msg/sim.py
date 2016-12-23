@@ -12,6 +12,11 @@ class SimSegment(object):
     """A step segment for simulating the step interval algorithm. """
     
     @staticmethod
+    def initial_params_v( v0, v1, t):
+    
+        return SimSegment.initial_params(abs(v0), abs(v1-v0)/t)
+    
+    @staticmethod
     def initial_params( v0, a):
         
         # Cn is the number of microseconds between  steps
@@ -44,7 +49,7 @@ class SimSegment(object):
         
         return n, cn
     
-    def __init__(self, v0, v1, x):
+    def __init__(self, v0, v1, x=None, t=None):
         """Return segment parameters given the initial velocity, final velocity, and distance traveled. """
 
         #Each segment must have a consistent, single-valued accceleration
@@ -54,25 +59,26 @@ class SimSegment(object):
         # If n is positive, there is a non zero velocity and we are accelerating
         # If it is negative, there is a non zero velocity and we are decelerating 
       
-        self.x = int(round(abs(x),0))
+        
         self.xn = 0 # running position. Done when xn = x
         self.v0 = abs(v0)
         self.v1 = abs(v1) # Velocity at last step
         
-        t = abs(2.* float(self.x) / float(self.v1+self.v0))
-        a = (self.v1-self.v0)/t 
+        if x is None:
+            self.x = .5*(v1+v0)*t 
+        else:
+            self.x = int(round(abs(x),0))
+            t = abs(2.* float(self.x) / float(self.v1+self.v0))
+            
+        self.a = (self.v1-self.v0)/t 
     
-        n, cn = self.initial_params(self.v0, a)
+        self.n, self.cn = self.initial_params(self.v0, self.a)
         
         
         self.tn  =  0 # Total transit time
         self.t1 = t # time at last step
         self.vn = abs(v0) # running velocity
-        self.a = a
-        self.n = n
-        self.cn = cn
-        
-        self.dir = sign(v0 + v1 ) 
+        self.dir = sign(self.v0 + self.v1 ) 
 
         
     def next_delay(self):
@@ -117,6 +123,6 @@ class SimSegment(object):
         return t,  v0+a*t
         
     def __repr__(self):
-        return  '{:<10.6} n={:<6d} cn={:<8.4f} xn={:<6.0f} vn={:<6.0f}'\
-                 .format(self.tn/1000000., self.n, self.cn, self.xn, self.vn)
+        return  '{:<10.6} t={:<8.4f} x={:<8.0f} n={:<6d} cn={:<8.4f} xn={:<6.0f} vn={:<6.0f}'\
+                 .format(self.tn/1000000., self.t1, self.x,  self.n, self.cn, self.xn, self.vn)
 

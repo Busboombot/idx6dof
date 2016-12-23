@@ -105,8 +105,8 @@ class Command(object):
         return struct.pack(self.msg_fmt, *msg)
         
     def __repr__(self):
-        return '<Rqst #{} {} {} {} {} {} ({})>'.format(self.seq, self.code, 
-                                                       self.v0, self.v1, self.steps, 
+        return '<Rqst #{} {} t={} v0={} v1={} x={} crc={} ({})>'.format(self.seq, self.code, 
+                                                       self.segment_time, self.v0, self.v1, self.steps, 
                                                        self.crc, self.state)
         
       
@@ -182,10 +182,16 @@ class ResponseReader(serial.threaded.Protocol):
     
     sync_str_n = struct.pack('<2c',*Command.sync_str)
     
+    def __init__(self, proto, callback):
+        import threading
+        self.proto = proto
+        self.callback = callback
+        
+        self.event = threading.Event()
+    
     def connection_made(self, transport):
         self.buf = bytearray()
         self.sent = {}
-
         self.transport = transport
 
     def data_received(self, data):
@@ -197,12 +203,11 @@ class ResponseReader(serial.threaded.Protocol):
         while( sync_idx >= 0 and len(self.buf) >= (sync_idx+Response.size)):
             
             response = Response(self.buf[sync_idx:sync_idx+Response.size])
-            print response 
-            
+
             if response.code == Response.RESPONSE_ACK:
                 try:
                     self.sent[response.seq].state = Response.RESPONSE_ACK
-                    print ("ACK", response)
+                    #print ("ACK", response)
                 except KeyError as e:
                     print ("ERROR: Got ack, but no message for seq: {}".format(response.seq))
                     print self.sent
@@ -210,7 +215,9 @@ class ResponseReader(serial.threaded.Protocol):
             elif response.code == Response.RESPONSE_DONE:
                 try:
                     del self.sent[response.seq]
-                    print ("DONE", response)
+                    #print ("DONE", response)
+                    
+                    self.callback(self.proto)
                 except KeyError:
                     print ("ERROR: No message for seq: {}".format(response.seq))
                 
@@ -219,7 +226,9 @@ class ResponseReader(serial.threaded.Protocol):
 
             
             self.buf = self.buf[sync_idx+Response.size:]
-         
+            
+            self.event.set()
+
         
     def sync_pos (self):
         return self.buf.find(self.sync_str_n)
@@ -241,25 +250,55 @@ class ResponseReader(serial.threaded.Protocol):
         except struct.error:
             print(msg)
             raise
+            
+    def sleep(self):
+        """Sleep for a bit to let the other thread clear out recieved messages """
+        
+        from time import sleep
+        
+        if len(self.sent) > 4:
+            while len(self.sent) > 2:
+                sleep(.05)
+                
+    def wait(self, timeout=None):
+        self.event.clear()
+        self.event.wait(timeout)
+        return len(self.sent)
+                
+    def __len__(self):
+        return len(self.sent)
    
 def s32tou(v):
     """Convert a signed 32 bit in to unsigned """
     return struct.unpack('I',struct.pack('i', v))[0]
   
-  
+
 class Proto(object):
     
-    def __init__(self, port, a_max=500000, v_max=15000):
+    def __init__(self, port, n_axes = 6, a_max=500000, v_max=15000, callback=None):
         from segments import SegmentList
         
         self.port = port
+        
         baud = 1050000
         self.ser = serial.Serial(self.port, baud, timeout=1);
         
-        self.segment_list = SegmentList(6, v_max=v_max, a_max=a_max, d_max = None)
+        self.segment_list = SegmentList(n_axes, v_max=v_max, a_max=a_max, d_max = None)
+
+        
+        def null_callback(proto):
+            pass
+            
+        self.callback = callback if callback is not None else null_callback
+        
         
     def __enter__(self):
-        self.rr = serial.threaded.ReaderThread(self.ser, ResponseReader )
+        
+        def proto_factory():
+            return ResponseReader(self, self.callback)
+
+        
+        self.rr = serial.threaded.ReaderThread(self.ser, proto_factory )
         self.proto =  self.rr.__enter__()
         return self.proto
         
@@ -269,5 +308,16 @@ class Proto(object):
         
     def write(self, data):
         self.proto.write(data)
+        
+    def wait(self, timeout=None):
+        self.rr.event.clear()
+        self.rr.event.wait(timeout)
+        return len(self.rr)
+        
+        
+
+
+        
+        
   
   
