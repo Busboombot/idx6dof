@@ -59,6 +59,10 @@ class Command(object):
         self.v1 = v1
         self.steps = steps
         
+        assert len(self.v0 ) == 6
+        assert len(self.v1 ) == 6
+        assert len(self.steps ) == 6
+        
         self.crc = crc
         
         self.state = state
@@ -89,14 +93,18 @@ class Command(object):
         
     def encode(self):
         
+        assert len(self.v0 ) == 6
+        assert len(self.v1 ) == 6
+        assert len(self.steps ) == 6
+        
         msg = (list(self.sync_str) + 
-              [self.seq, self.code, self.pad, self.segment_time] + 
+              [self.seq, self.code, self.pad, self.segment_time] +
               self.v0 + self.v1 + self.steps)
-    
+              
         try:
             self.crc = s32tou(binascii.crc32(struct.pack(Command.msg_fmt[:-1], *msg)))
         except:
-           
+            
             print "CRC Failed for :", msg
             raise
     

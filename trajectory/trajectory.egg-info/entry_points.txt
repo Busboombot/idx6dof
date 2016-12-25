@@ -1,0 +1,4 @@
+[console_scripts]
+joy_planner = trajectory.cli:run_joy_planner
+robot_joystick = trajectory.cli:run_joystick
+

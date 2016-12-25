@@ -50,7 +50,8 @@ setup(
     classifiers=classifiers,
     entry_points={
         'console_scripts': [
-            'robot_joystick=trajectory.cli:run_joystick'
+            'robot_joystick=trajectory.cli:run_joystick',
+            'joy_planner=trajectory.cli:run_joy_planner'
         ],
     },
 )

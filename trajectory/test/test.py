@@ -8,14 +8,11 @@ from time import sleep, time
 import unittest
 
 
-
 class TestPoints(unittest.TestCase):
     
    
     def test_joy_move(self):
 
-        
-        
         def get_joy():
             while True:
                 with open('/tmp/joystick') as f:

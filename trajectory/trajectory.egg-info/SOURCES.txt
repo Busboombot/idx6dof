@@ -1,0 +1,16 @@
+README.rst
+setup.py
+test/test.py
+trajectory/__init__.py
+trajectory/animate.py
+trajectory/cli.py
+trajectory/joystick.py
+trajectory/proto.py
+trajectory/segments.py
+trajectory/sim.py
+trajectory/util.py
+trajectory.egg-info/PKG-INFO
+trajectory.egg-info/SOURCES.txt
+trajectory.egg-info/dependency_links.txt
+trajectory.egg-info/entry_points.txt
+trajectory.egg-info/top_level.txt

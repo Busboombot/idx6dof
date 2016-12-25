@@ -1,0 +1,16 @@
+Metadata-Version: 1.1
+Name: trajectory
+Version: 0.1
+Summary: Motion control trajectory planning and comminication with an embedded controller
+Home-page: https://github.com/CivicKnowledge/trajectory.git
+Author: Eric Busboom
+Author-email: eric@civicknowledge.com
+License: MIT
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
