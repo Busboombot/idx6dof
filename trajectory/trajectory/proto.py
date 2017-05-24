@@ -304,7 +304,6 @@ class Proto(object):
         
         def proto_factory():
             return ResponseReader(self, self.callback)
-
         
         self.rr = serial.threaded.ReaderThread(self.ser, proto_factory )
         self.proto =  self.rr.__enter__()
@@ -313,6 +312,15 @@ class Proto(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
     
         return self.rr.__exit__(exc_type, exc_val, exc_tb)
+    
+        
+    def open(self):
+        return self.__enter__()
+    
+    
+    def close(self):
+        self.ser.close()
+        
         
     def write(self, data):
         self.proto.write(data)

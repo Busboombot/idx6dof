@@ -1,7 +1,7 @@
-
+from __future__ import print_function
 from math import sqrt
 from collections import namedtuple
-from util import sign
+from .util import sign
 
 DEFAULT_ACCELERATION = 50000
 
@@ -190,9 +190,9 @@ class Segment(object):
         max_td = max(j.td for j in self.joints)
 
         if max_ta + max_td > self.t:
-            print "VVVVVV"
-            print self
-            print "^^^^^^"
+            print("VVVVVV")
+            print(self)
+            print("^^^^^^")
             raise CantNormalize("Can't normalize: accl {} + decl {} is greater than total time {}"\
             .format(max_ta, max_td, self.t ))
         

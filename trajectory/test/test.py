@@ -1,4 +1,4 @@
-
+from __future__ import print_function
 from tabulate import tabulate
 from trajectory import Proto, Command, Response, SimSegment,  \
                        SegmentList, SegmentIterator, SegmentBuffer, \
@@ -129,7 +129,7 @@ class TestPoints(unittest.TestCase):
                 sl.add_velocity_segment([0,j*200,j*200,0,0,0], t=1)
                 sl.add_velocity_segment([j*200,j*200, j*200,0,0,0], t=1)
                 
-        print sl
+        print(sl)
 
 
         with Proto('/dev/cu.usbmodemFD1431') as proto:
@@ -177,7 +177,7 @@ class TestPoints(unittest.TestCase):
         sl.add_segment([20000,30000,40000,0,0,0], t=400)
         sl.add_segment([20000,30000,40000,0,0,0], t=400)
         
-        print sl
+        print(sl)
         
         t_sum = 0
         x_sum = [0] * 6
@@ -198,14 +198,14 @@ class TestPoints(unittest.TestCase):
         
             
         for ss in sl.iter_subsegments():
-            print ss
+            print(ss)
             
         sl = SegmentList(1, 15000, 1)
         sl.add_velocity_segment([0], t=400)
         sl.add_velocity_segment([0], t=400)
            
         for ss in sl.iter_subsegments():
-            print ss
+            print(ss)
             
         
     def test_sub_segments(self):
@@ -234,7 +234,7 @@ class TestPoints(unittest.TestCase):
             sl.add_segment([i*10000], t=1)
         
         for i, ss in enumerate(SegmentIterator(sl)):
-            print ss.joints[0].v1, i, ss
+            print(ss.joints[0].v1, i, ss)
             
             if 4 < i < 8:
                 sl.add_segment([10000], t=1)
@@ -250,32 +250,32 @@ class TestPoints(unittest.TestCase):
         sl = SegmentList(n_axes, 15000, 1)
         sl.add_segment([20000], t=400)
 
-        print sl
+        print(sl)
         
         for s in sl.iter_subsegments:
-            print s
+            print(s)
             
-        print "==========="
+        print("===========")
 
         sl = SegmentList(n_axes, 15000, 1)
         sl.add_segment([20000], t=400)
         sl.add_segment([-20000], t=400)
 
-        print sl
+        print(sl)
         
         for s in sl.iter_subsegments:
-            print s
+            print(s)
             
-        print "==========="
+        print("===========")
 
         sl = SegmentList(n_axes, 15000, 1)
         sl.add_segment([-20000], t=400)
         sl.add_segment([20000], t=400)
 
-        print sl
+        print(sl)
         
         for s in sl.iter_subsegments:
-            print s
+            print(s)
         
     def test_sim_steps(self):
         from sim import SimSegment
@@ -283,7 +283,7 @@ class TestPoints(unittest.TestCase):
         from operator import attrgetter
         
         def prss(ss):
-            print ss.n,ss.tn,ss.xn,ss.vn,ss.cn
+            print(ss.n,ss.tn,ss.xn,ss.vn,ss.cn)
             
         def roundss(ss):
             return (ss.n,round(ss.tn,-4),ss.xn,round(ss.vn,-1),round(ss.cn,-4))
@@ -303,12 +303,12 @@ class TestPoints(unittest.TestCase):
         
     
         ss = SimSegment(200,300, t=.5)
-        print ss
-        print ss.run_out()
-        print '---'
+        print(ss)
+        print(ss.run_out())
+        print('---')
         ss = SimSegment(300,400, t=.5)
-        print ss
-        print ss.run_out()
+        print(ss)
+        print(ss.run_out())
             
     def test_sim(self):
         from sim import SimSegment
@@ -320,13 +320,13 @@ class TestPoints(unittest.TestCase):
         for t, joints in sl:
             x, v0, v1 = joints[0]
             a = float(v1-v0)/float(t)
-            print "{} x={} v0={} v1={} a={}".format(t, x, v0, v1, a)
+            print ("{} x={} v0={} v1={} a={}".format(t, x, v0, v1, a))
         
-        print "-----" 
+        print("-----")
     
         s = SimSegment(10000,0,5000)
         for _ in s:
-            print s
+            print(s)
     
     
     def test_segment_buffer(self):
@@ -347,10 +347,10 @@ class TestPoints(unittest.TestCase):
             s =  sl.add_velocity_segment([10000], t=1)
             if s:
                 for ss in s:
-                    print len(sl), ss, mkcn(ss)
+                    print(len(sl), ss, mkcn(ss))
 
         for ss in sl.pop():
-            print len(sl),ss, mkcn(ss)
+            print (len(sl),ss, mkcn(ss))
     
     def test_joy_buffer(self):
         
@@ -380,7 +380,7 @@ class TestPoints(unittest.TestCase):
                 if s:
                     for ss in s:
                         if ss.t_seg > 0:
-                            print mkcn(ss)
+                            print(mkcn(ss))
     
                   
     def test_plot(self):
@@ -391,7 +391,7 @@ class TestPoints(unittest.TestCase):
         
         df = pd.DataFrame(l, columns='t x v'.split())
         
-        print df.head()
+        print(df.head())
         
         df.plot(x='t',y='x')
 
@@ -436,13 +436,11 @@ class TestPoints(unittest.TestCase):
         df = pd.DataFrame(l, columns='t x v'.split())
         df2 = pd.DataFrame(sims, columns='t xs vs'.split())
         
-        
         fig, ax = plt.subplots(1, 1)
         df.plot(ax=ax,x='t',y='x')
         df2.plot(ax=ax,x='t',y='xs')
         
         plt.show()
-
 
     
 if __name__ == '__main__':
