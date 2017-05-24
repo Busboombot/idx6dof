@@ -86,15 +86,10 @@ const char IDXPendant::sw_names[] = "abcdefghijhlmnopq";
 const char IDXPendant::sw_nulls[] = "12345678901234567";
   
 
-
 IDXPendant::IDXPendant()
 {
-  
-    serial_is_setup = false;
-    
+
     last_switch_set_count = 0;
-    
-    
     
 }
 
@@ -115,10 +110,6 @@ void IDXPendant::begin() {
     switch_positions[i] = last_switch_positions[i] = IDX_SW_POS_MID;
   }
   
-
-    for (int i = 0; i < IDX_NUM_SWITCHES; i++ ){
-        Serial.print(sw_pos_name(i));
-    }
 
 }
 
@@ -144,7 +135,6 @@ bool IDXPendant::run_once() {
           
           switch_positions[se.sw_num-1] = se.pos_code;
           
-
         }
     }
     digitalWrite(outpins[i], LOW);  
@@ -200,16 +190,16 @@ char IDXPendant::sw_pos_name(int switch_n){
  
 }
 
-char outs[IDX_NUM_SWITCHES];
+char outs[IDX_NUM_SWITCHES+1] = {0};
 
 char* IDXPendant::outstr(){
-  
 
   for (int i = 1; i <= IDX_NUM_SWITCHES; i++){
     outs[i-1] = sw_pos_name(i);
   }
+  
   outs[IDX_NUM_SWITCHES] = 0;
-    Serial.println(outs);
+  
   return outs;
   
 }
