@@ -1,6 +1,6 @@
 
 // Read a movement command from the serial port
-
+#ifdef _SAM3XA_
 #include "idx_command.h"
 #include <Arduino.h>
 #include "CRC32.h"
@@ -110,3 +110,4 @@ def fletcher16( data ):
     sum2 = (sum2 & 0xff) + (sum2 >> 8)
     return sum2 << 8 | sum1;
 */
+#endif

@@ -23,7 +23,6 @@ void serialEvent() {
   while (Serial.available()) {
     
     c = Serial.read();
-
     if(isalpha(c)){
       command_code[command_pos++]  = c; 
     }
@@ -53,7 +52,8 @@ void loop() {
 
     // print the output string
     } else if (strcmp(command_code,"pp") == 0){
-      Serial.println(pendant.outstr());
+      pendant.outstr();
+      //Serial.println("pp");
 
     // Turn automatic printing on
     } else if (strcmp(command_code,"ao") == 0){
@@ -62,6 +62,11 @@ void loop() {
     // turn automatic print off
     } else if (strcmp(command_code,"af") == 0){
       auto_print = false;
+
+    //Random  
+    } else if (strcmp(command_code,"xx") == 0){
+      Serial.println(random());
+      Serial.println('c');
       
     }
 

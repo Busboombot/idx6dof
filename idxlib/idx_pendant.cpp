@@ -5,7 +5,6 @@
 #include "Arduino.h"
 #include "idx_pendant.h"
 #include "bithacks.h"
-
 #include <stdio.h>
 #include <stdint.h>
 #include <ctype.h>
@@ -94,6 +93,9 @@ IDXPendant::IDXPendant()
     serial_is_setup = false;
     
     last_switch_set_count = 0;
+    
+    
+    
 }
 
 
@@ -112,10 +114,16 @@ void IDXPendant::begin() {
   for (int i = 0; i < IDX_NUM_SWITCHES; i++ ){
     switch_positions[i] = last_switch_positions[i] = IDX_SW_POS_MID;
   }
+  
+
+    for (int i = 0; i < IDX_NUM_SWITCHES; i++ ){
+        Serial.print(sw_pos_name(i));
+    }
 
 }
 
 bool IDXPendant::run_once() {
+
 
   switch_set_count = 0;
   
@@ -166,7 +174,7 @@ static int sw_pos_map[] = { IDX_SW_POS_MID, IDX_SW_POS_TOP, IDX_SW_POS_BOTTOM, 0
 int IDXPendant::sw_pos(int switch_n){
   
   if (switch_n == 0){
-    return IDX_SW_POS_INVALID; // Not a vallid switch
+    return IDX_SW_POS_INVALID; // Not a valid switch
   }
   
   return switch_positions[switch_n - 1];
@@ -201,7 +209,7 @@ char* IDXPendant::outstr(){
     outs[i-1] = sw_pos_name(i);
   }
   outs[IDX_NUM_SWITCHES] = 0;
-  
+    Serial.println(outs);
   return outs;
   
 }

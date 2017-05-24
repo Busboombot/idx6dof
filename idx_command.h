@@ -1,5 +1,6 @@
 // Structures for movement commands
 
+#ifdef _SAM3XA_
 #ifndef idx_command_h
 #define idx_command_h
 
@@ -227,4 +228,5 @@ class IDXCommandPort {
     
 };
     
+#endif
 #endif
