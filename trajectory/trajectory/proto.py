@@ -1,10 +1,13 @@
-
+from __future__ import print_function
 import serial
 import serial.threaded
 import struct
 import binascii
 import time
-
+from time import sleep
+import traceback
+import sys
+from . import SegmentList
 
 class SerialPacketError(Exception):
     pass
@@ -32,7 +35,7 @@ class Command(object):
     COMMAND_POSITIONQUERY = 20
 
     
-    sync_str = 'ID'
+    sync_str = (b'I',b'D')
     msg_fmt = ('<2c'+ # Sync code "ID"
               'H'+ # seq
               'H'+ # code
@@ -102,10 +105,15 @@ class Command(object):
               self.v0 + self.v1 + self.steps)
               
         try:
-            self.crc = s32tou(binascii.crc32(struct.pack(Command.msg_fmt[:-1], *msg)))
+            crc = binascii.crc32(struct.pack(Command.msg_fmt[:-1], *msg))
         except:
-            
-            print "CRC Failed for :", msg
+            print("CRC Failed for :", msg)
+            raise
+    
+        try:
+            self.crc = s32tou(crc)
+        except:
+            print("s32tou Failed for :", crc)
             raise
     
         msg.append(self.crc) # Add checksum on
@@ -218,7 +226,7 @@ class ResponseReader(serial.threaded.Protocol):
                     #print ("ACK", response)
                 except KeyError as e:
                     print ("ERROR: Got ack, but no message for seq: {}".format(response.seq))
-                    print self.sent
+                    print (self.sent)
                     
             elif response.code == Response.RESPONSE_DONE:
                 try:
@@ -242,8 +250,7 @@ class ResponseReader(serial.threaded.Protocol):
         return self.buf.find(self.sync_str_n)
 
     def connection_lost(self, exc):
-        import traceback
-        import sys
+
         if exc:
             traceback.print_exc(exc)
         sys.stdout.write('port closed\n')
@@ -262,7 +269,6 @@ class ResponseReader(serial.threaded.Protocol):
     def sleep(self):
         """Sleep for a bit to let the other thread clear out recieved messages """
         
-        from time import sleep
         
         if len(self.sent) > 4:
             while len(self.sent) > 2:
@@ -284,8 +290,7 @@ def s32tou(v):
 class Proto(object):
     
     def __init__(self, port, n_axes = 6, a_max=500000, v_max=15000, callback=None):
-        from segments import SegmentList
-        
+
         self.port = port
         
         baud = 1050000
