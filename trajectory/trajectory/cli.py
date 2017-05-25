@@ -5,15 +5,19 @@ def run_joystick():
     """Read the joystick and write the vaules to a file file"""
     import sys
     from time import sleep
-    from .joystick import Joystick
+    from .joystick import PygameJoystick as Joystick
      
-    f = open(sys.argv[1], 'w') if len(sys.argv) > 1 else sys.stdout
-
-    for values in Joystick(.5):
-        f.write(','.join(str(e) for e in values))
-        f.write('\n')
-        f.seek(0)
-        sleep(.2)
+    if len(sys.argv) > 1:
+        with open(sys.argv[1], 'w'):
+            for values in Joystick(.5):
+                f.write(','.join(str(e) for e in values))
+                f.write('\n')
+                f.seek(0)
+                sleep(.2)
+    else:
+        for values in Joystick(.5):
+            print values
+            
 
 def run_joy_planner():
 
@@ -36,7 +40,7 @@ def run_joy_planner():
     
         for velocities in get_joy():
             
-            print velocities
+            axis_mode = velocities.pop(0)
 
             dt = time()-last_time
 

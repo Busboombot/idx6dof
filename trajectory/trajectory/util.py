@@ -3,6 +3,38 @@
 
 def sign(a): return (a>0) - (a<0)
 
+def mkmap(r1,r2, d1,d2):
+    """Map from one inter range to another"""
+    r = r2-r1
+    d = d2-d1
+
+    def range(x):
+        
+        x = round(x,2)
+        
+        if x < r1:
+            x = r1
+        elif x > r2:
+            x = r2
+        
+        s = float(x-r1)/float(r)
+        v =  d1+(s*d)
+        
+        return v
+    
+    return range
+    
+# Different maps for each max speed
+freq_map = [
+   mkmap(0, 1, 0, 600 ),
+   mkmap(0, 1, 0, 3000 ),
+   mkmap(0, 1, 0, 8000 ),
+   mkmap(0, 1, 0, 11000 ), 
+   mkmap(0, 1, 0, 15000 ) 
+] 
+
+
+
 def _find_getch():
     try:
         import termios
