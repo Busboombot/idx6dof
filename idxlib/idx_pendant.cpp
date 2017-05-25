@@ -5,7 +5,6 @@
 #include "Arduino.h"
 #include "idx_pendant.h"
 #include "bithacks.h"
-
 #include <stdio.h>
 #include <stdint.h>
 #include <ctype.h>
@@ -87,13 +86,11 @@ const char IDXPendant::sw_names[] = "abcdefghijhlmnopq";
 const char IDXPendant::sw_nulls[] = "12345678901234567";
   
 
-
 IDXPendant::IDXPendant()
 {
-  
-    serial_is_setup = false;
-    
+
     last_switch_set_count = 0;
+    
 }
 
 
@@ -112,10 +109,12 @@ void IDXPendant::begin() {
   for (int i = 0; i < IDX_NUM_SWITCHES; i++ ){
     switch_positions[i] = last_switch_positions[i] = IDX_SW_POS_MID;
   }
+  
 
 }
 
 bool IDXPendant::run_once() {
+
 
   switch_set_count = 0;
   
@@ -136,7 +135,6 @@ bool IDXPendant::run_once() {
           
           switch_positions[se.sw_num-1] = se.pos_code;
           
-
         }
     }
     digitalWrite(outpins[i], LOW);  
@@ -166,7 +164,7 @@ static int sw_pos_map[] = { IDX_SW_POS_MID, IDX_SW_POS_TOP, IDX_SW_POS_BOTTOM, 0
 int IDXPendant::sw_pos(int switch_n){
   
   if (switch_n == 0){
-    return IDX_SW_POS_INVALID; // Not a vallid switch
+    return IDX_SW_POS_INVALID; // Not a valid switch
   }
   
   return switch_positions[switch_n - 1];
@@ -192,14 +190,14 @@ char IDXPendant::sw_pos_name(int switch_n){
  
 }
 
-char outs[IDX_NUM_SWITCHES];
+char outs[IDX_NUM_SWITCHES+1] = {0};
 
 char* IDXPendant::outstr(){
-  
 
   for (int i = 1; i <= IDX_NUM_SWITCHES; i++){
     outs[i-1] = sw_pos_name(i);
   }
+  
   outs[IDX_NUM_SWITCHES] = 0;
   
   return outs;

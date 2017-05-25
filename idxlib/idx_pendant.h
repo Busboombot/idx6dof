@@ -65,7 +65,6 @@ class IDXPendant {
     uint8_t switch_set_count; // number of switches set per loop 
     uint8_t last_switch_set_count;
 
-    bool serial_is_setup;
 
   
 };
