@@ -65,8 +65,6 @@ int main(void) {
       //Serial.print("Clear message ");Serial.println(msg->seq);
       cbuf.sendDone(*msg);
       cbuf.resetLoopTimes();
-      //cbuf.setPositions(positions);
-
       delete msg;
       msg = 0;
     }
@@ -98,6 +96,7 @@ int main(void) {
     
      /* Clear all of the pins, so setting a pin actually results in a
      * transition
+     * 
      */
     
     for (int axis = 0; axis < N_AXES; axis ++){
@@ -107,7 +106,7 @@ int main(void) {
     /*
      * Iterate over all of the axes and step them when their time comes up. 
      */
-
+-
     active_axes = 0;
     now = micros();
     for (int axis = 0; axis < N_AXES; axis ++){
