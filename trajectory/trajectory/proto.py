@@ -299,9 +299,7 @@ class Proto(object):
             
         self.callback = callback if callback is not None else null_callback
         
-        
-    def __enter__(self):
-        
+    def open(self):
         def proto_factory():
             return ResponseReader(self, self.callback)
 
@@ -309,6 +307,13 @@ class Proto(object):
         self.rr = serial.threaded.ReaderThread(self.ser, proto_factory )
         self.proto =  self.rr.__enter__()
         return self.proto
+        
+    def __enter__(self):
+        return self.open()
+        
+        
+    def close(self):
+        return self.rr.__exit__(None, None, None)
         
     def __exit__(self, exc_type, exc_val, exc_tb):
     
