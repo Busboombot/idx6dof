@@ -4,10 +4,18 @@ from trajectory import Proto, Command, Response, SimSegment,  \
                        SegmentList, SegmentIterator, SegmentBuffer, \
                        Joystick
 from time import sleep, time
-
+import time
+import csv        
 import unittest
 
+from math import sqrt
+from operator import attrgetter
+from time import sleep, time
 
+usb_port = '/dev/cu.usbmodem54'
+
+
+        
 class TestPoints(unittest.TestCase):
     
    
@@ -19,7 +27,7 @@ class TestPoints(unittest.TestCase):
                     return [float(e) for e in f.readline().split(',')]
 
           
-        with Proto('/dev/cu.usbmodemFD1431') as proto:
+        with Proto(usb_port) as proto:
             
             last_time = time()
             last_velocities = [0]*6
@@ -50,10 +58,7 @@ class TestPoints(unittest.TestCase):
 
                 
     def test_rec_joy_moves_cmd(self):
-        from segments import SegmentList, SegmentIterator
-        import time
-        import csv
-        
+
         with open('joy_moves.csv') as f:
             moves = list(csv.reader(f))
 
@@ -66,7 +71,7 @@ class TestPoints(unittest.TestCase):
 
         last_velocities = [0]*n_axes
         
-        with Proto('/dev/cu.usbmodemFD1431') as proto:
+        with Proto(usb_port) as proto:
             
             for seq, m in enumerate(moves):
                 
@@ -86,10 +91,7 @@ class TestPoints(unittest.TestCase):
                     pass
 
     def test_rec_joy_moves_sl(self):
-        from segments import SegmentList, SegmentIterator
-        import time
-        import csv
-        
+
         with open('joy_moves.csv') as f:
             moves = list(csv.reader(f))
 
@@ -99,7 +101,7 @@ class TestPoints(unittest.TestCase):
         for m in moves:
                 sl.add_velocity_segment([float(e) for e in [m[1],m[2],m[3],0,0,0]],t=float(m[0]))
 
-        with Proto('/dev/cu.usbmodemFD1431') as proto:
+        with Proto(usb_port) as proto:
             
             for i, s in enumerate(SegmentIterator(sl)):
 
@@ -115,24 +117,26 @@ class TestPoints(unittest.TestCase):
                     pass
 
     def test_move_commands(self):
-        from segments import SegmentList, SegmentIterator
-        import time
+
           
         n_axes = 6
         
-        sl = SegmentList(n_axes, 800, 15000)
-        for i in range(10):
+        sl = SegmentList(n_axes, 500, 1)
+        
+        m=200
+        
+        for i in range(3):
             for j in range(1,4):
-                sl.add_velocity_segment([j*200,0,0,0,0,0], t=1)
-                sl.add_velocity_segment([0,j*200,0,0,0,0], t=1)
-                sl.add_velocity_segment([0,0, j*200,0,0,0], t=1)
-                sl.add_velocity_segment([0,j*200,j*200,0,0,0], t=1)
-                sl.add_velocity_segment([j*200,j*200, j*200,0,0,0], t=1)
+                sl.add_velocity_segment([j*m,0,0,0,0,0], t=1)
+                sl.add_velocity_segment([0,j*m,0,0,0,0], t=1)
+                #sl.add_velocity_segment([0,0, j*m,0,0,0], t=1)
+                #sl.add_velocity_segment([0,j*m,j*m,0,0,0], t=1)
+                #sl.add_velocity_segment([j*m,j*m, j*m,0,0,0], t=1)
                 
         print(sl)
 
 
-        with Proto('/dev/cu.usbmodemFD1431') as proto:
+        with Proto(usb_port) as proto:
             for i, s in enumerate(SegmentIterator(sl)):
 
                 msg = Command(i, 10, int(s.t_seg*1000000), 
@@ -148,14 +152,13 @@ class TestPoints(unittest.TestCase):
 
 
     def test_messages(self):
-        import time
-        
+
         print ("Command size", Command.size)
         print ("Response Size", Response.size)
         
         null_axes = [0,1,2,3,4,5]
         
-        with Proto('/dev/cu.usbmodemFD1431') as proto:
+        with Proto(usb_port) as proto:
             for i in range(10):
         
                 msg = Command(i, 10, 3*1, null_axes, null_axes, null_axes)
@@ -164,13 +167,13 @@ class TestPoints(unittest.TestCase):
 
                 if len(proto.sent) > 5:
                     while len(proto.sent) > 2:
-                        time.sleep(.01)  
+                        sleep(.01)  
                 else:
-                    time.sleep(0.1)
+                    sleep(0.1)
+         
         
     def test_linear_segments(self):
-        from segments import SegmentList
-        
+
         sl = SegmentList(6, 15000, 1)
         sl.add_segment([20000,30000,40000,0,0,0], t=400)
         sl.add_segment([20000,30000,40000,0,0,0], t=400)
@@ -209,8 +212,7 @@ class TestPoints(unittest.TestCase):
             
         
     def test_sub_segments(self):
-        from segments import SegmentList, SegmentIterator
-        
+
         sl = SegmentList(1, 15000, 50000)
         sl.add_segment([20000], t=.05)
         
@@ -226,8 +228,7 @@ class TestPoints(unittest.TestCase):
         self.assertEquals(1.63, round(ss[2].t,2))
         
     def test_segments_queue(self):
-        from segments import SegmentList, SegmentIterator
-        
+
         sl = SegmentList(1, 15000, 50000)
 
         for i in range(1,5):
@@ -243,8 +244,7 @@ class TestPoints(unittest.TestCase):
         self.assertEquals(130000, round(ss.x[0],0))
         
     def test_complex_segments(self):
-        from segments import SegmentList
-        
+
         n_axes = 1
         
         sl = SegmentList(n_axes, 15000, 1)
@@ -278,9 +278,7 @@ class TestPoints(unittest.TestCase):
             print(s)
         
     def test_sim_steps(self):
-        from sim import SimSegment
-        from math import sqrt
-        from operator import attrgetter
+
         
         def prss(ss):
             print(ss.n,ss.tn,ss.xn,ss.vn,ss.cn)
@@ -299,8 +297,7 @@ class TestPoints(unittest.TestCase):
         #    prss(ss)
         
     def test_sim_params(self):
-        from sim import SimSegment 
-        
+
     
         ss = SimSegment(200,300, t=.5)
         print(ss)
@@ -311,8 +308,7 @@ class TestPoints(unittest.TestCase):
         print(ss.run_out())
             
     def test_sim(self):
-        from sim import SimSegment
-        from segments import SegmentList
+
     
         sl = SegmentList(6, 40000, 15000)
         sl.add_segment([26500,0,0,0,0,0], t=2.66)
@@ -330,13 +326,11 @@ class TestPoints(unittest.TestCase):
     
     
     def test_segment_buffer(self):
-        
-        from segments import SegmentBuffer
-        
+
         sl = SegmentBuffer(1, 15000, 50000)
         
         def mkcn(ss):
-            from sim import SimSegment
+
             t = ss.t_seg
 
             return [ (x_,)+ SimSegment.initial_params(v_, a_) for x_, v_, a_ in 
@@ -354,15 +348,11 @@ class TestPoints(unittest.TestCase):
     
     def test_joy_buffer(self):
         
-        from joystick import Joystick
-        from time import sleep, time
-        from joystick import Joystick
-        from segments import SegmentBuffer
+
         
         sl = SegmentBuffer(4, 15000, 50000)
         
         def mkcn(ss):
-            from sim import SimSegment
             t = ss.t_seg
             
             return [ (x_,)+ SimSegment.initial_params(v_, a_) for x_, v_, a_ in 
@@ -400,7 +390,6 @@ class TestPoints(unittest.TestCase):
     def test_plot2(self):
         """Plot v vs t for a set of segments, both from the endpoints of the segments
         and a simulation of the step algorithm. """
-        from segments import SegmentList
         import pandas as pd 
         import numpy as np
         import matplotlib.pyplot as plt

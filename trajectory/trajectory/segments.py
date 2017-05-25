@@ -2,7 +2,8 @@ from __future__ import print_function
 from math import sqrt
 from collections import namedtuple
 from .util import sign
-
+from .sim import SimSegment
+        
 DEFAULT_ACCELERATION = 50000
 
 
@@ -505,8 +506,6 @@ class SegmentIterator(object):
         return self.__next__()
         
     def __next__(self):
-        
-        from sim import SimSegment
         
         if self.current_segment is None:
             
