@@ -1,7 +1,6 @@
 from __future__ import print_function
 from tabulate import tabulate
-from trajectory import Proto, Command, Response, SimSegment,  \
-                       SegmentList, SegmentIterator, SegmentBuffer, \
+from trajectory import Proto, Command, Response, SimSegment,  SegmentList, SegmentIterator, SegmentBuffer, \
                        Joystick
 from time import sleep, time
 import time
@@ -12,7 +11,7 @@ from math import sqrt
 from operator import attrgetter
 from time import sleep, time
 
-usb_port = '/dev/cu.usbmodem54'
+usb_port = '/dev/cu.usbmodemFD1421'
 
 
         
@@ -56,7 +55,6 @@ class TestPoints(unittest.TestCase):
                 elif dt < .20:
                     sleep(.20-dt)
 
-                
     def test_rec_joy_moves_cmd(self):
 
         with open('joy_moves.csv') as f:
@@ -118,20 +116,19 @@ class TestPoints(unittest.TestCase):
 
     def test_move_commands(self):
 
-          
         n_axes = 6
         
-        sl = SegmentList(n_axes, 500, 1)
-        
-        m=200
-        
+        sl = SegmentList(n_axes, 800, 1000)
+
+    
+        m=600
+    
         for i in range(3):
-            for j in range(1,4):
-                sl.add_velocity_segment([j*m,0,0,0,0,0], t=1)
-                sl.add_velocity_segment([0,j*m,0,0,0,0], t=1)
-                #sl.add_velocity_segment([0,0, j*m,0,0,0], t=1)
-                #sl.add_velocity_segment([0,j*m,j*m,0,0,0], t=1)
-                #sl.add_velocity_segment([j*m,j*m, j*m,0,0,0], t=1)
+            sl.add_velocity_segment([m,0,0,0,0,0], t=1)
+            sl.add_velocity_segment([0,m,0,0,0,0], t=1)
+            sl.add_velocity_segment([0,0,m,0,0,0], t=1)
+            sl.add_velocity_segment([0,m,m,0,0,0], t=1)
+            sl.add_velocity_segment([m,m,m,0,0,0], t=1)
                 
         print(sl)
 
@@ -147,9 +144,53 @@ class TestPoints(unittest.TestCase):
                 proto.write(msg)
                 print(msg)
 
-                while proto.wait()>1:
-                    pass
+                if len(proto.sent) > 5:
+                    while len(proto.sent) > 2:
+                        sleep(.01)  
+                else:
+                    sleep(0.1)
 
+
+    def test_direct_messages(self):
+
+        print ("Command size", Command.size)
+        print ("Response Size", Response.size)
+        
+        n_axes = 6
+        
+        v0s = [0]*n_axes
+        v1s = [0]*n_axes
+        xs = [0]*n_axes
+        
+        v1s[0] = 400
+        xs[0] = 400
+        
+        #v1s[1] = 400
+        #xs[1] = 400
+        
+        #v1s[2] = 400
+        #xs[2] = 400
+        
+        
+        commands = []
+        
+        for i in range(3):
+
+            commands.append(Command(i*2, 10, 2000000, v0s, v1s, xs))
+            commands.append(Command(i*2+1, 10, 2000000, v1s, v0s, xs))
+        
+        
+        with Proto(usb_port) as proto:
+            for msg in commands:
+
+                proto.write(msg)
+                print(msg)
+
+                if len(proto.sent) > 5:
+                    while len(proto.sent) > 2:
+                        sleep(.01)  
+                else:
+                    sleep(0.1)
 
     def test_messages(self):
 

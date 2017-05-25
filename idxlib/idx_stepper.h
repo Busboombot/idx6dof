@@ -119,14 +119,6 @@ public:
             direction = STOP;
         }
         
-        if (stepsLeft > 0){
-            if (false){
-                Serial.print("Setting "); Serial.print(now); 
-                Serial.print(" "); Serial.print(n); 
-                Serial.print(" "); Serial.println(cn);
-            }
-        }
-        
     }
     
     inline uint32_t getStepsLeft(){
@@ -140,7 +132,7 @@ public:
     
     inline long step(uint32_t now){
         
- 
+
         if ( stepsLeft != 0 && ( (unsigned long)(now - lastTime)   > cn) ) {
             
             // cn is always positive, but n can be negative. n is always stepped +1, 
@@ -148,7 +140,6 @@ public:
             // a positive n causes cn to get smaller each step -> acceleration
             
             cn = fabs( (float)cn - ( (2.0 * (float)cn) / ((4.0 * (float)n) + 1.0))); // Why is it going negative?
-            
             
             stepsLeft -= 1;
             n += 1;
@@ -158,17 +149,7 @@ public:
             
             position += direction;
 
-            if (stepsLeft == 0 and false){
-                Serial.print("Done    "); Serial.print(now); 
-                Serial.print(" "); Serial.print(n); 
-                Serial.print(" ");Serial.print(cn);
-                Serial.print(" ");Serial.println(now-startTime);
-            }
-        
-
         }
-        
-        
         
         return stepsLeft;
     }
@@ -180,13 +161,7 @@ public:
         
     }
     
-
 protected:
-
-
-
-
-
 
 };
 
