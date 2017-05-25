@@ -100,11 +100,7 @@ public:
             cn = 1000000.0 / abs(v0);
         } else {
             a = fabs((float)v1-(float)v0) / t;
-            n = abs((long) 
-                    ( 
-                        ((float)v0 * (float)v0) / (2.0 * a)
-                    )
-                ); // Equation 16
+            n = abs((long) ( ((float)v0 * (float)v0) / (2.0 * a))); // Equation 16
             cn = 1000000.0 / abs(v0);
             
             // Need to put the sign back on n; n must be negative for deceleration
