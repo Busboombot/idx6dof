@@ -8,6 +8,9 @@
 #define fastSet(pin) (digitalPinToPort(pin)->PIO_SODR |= digitalPinToBitMask(pin) ) 
 #define fastClear(pin) (digitalPinToPort(pin)->PIO_CODR |= digitalPinToBitMask(pin) )
 
+#define LOOP_TICK_PIN 14
+#define MESSAGE_TICK_PIN 15
+
 
 /*
  * Initialize the board, serial ports, etc. 
@@ -22,8 +25,8 @@ void init_board(){
   SerialUSB.begin(1050000); // For ros messages
 
   // Diagnostics
-  pinMode(14, OUTPUT); // Loop tick
-  pinMode(15, OUTPUT); // message tick
+  pinMode(LOOP_TICK_PIN, OUTPUT); // Loop tick
+  pinMode(MESSAGE_TICK_PIN, OUTPUT); // message tick
   
 }
 
@@ -50,6 +53,8 @@ int main(void) {
   Serial.print("Response size:");Serial.println(sizeof(struct response));
   
   for (;;) {
+
+    //fastSet(LOOP_TICK_PIN);
 
     cbuf.startLoop(); // Start diagnostic times. 
 
@@ -79,7 +84,7 @@ int main(void) {
     if( cbuf.size() > 0 && msg == 0 ){
      
       msg = cbuf.getMessage();
-      if (true){
+      if (false){
         Serial.print("Start: ql="); Serial.print(cbuf.size()); 
         Serial.print(" Mesg#"); Serial.print(msg->seq); 
         Serial.print(" t="); Serial.print(msg->segment_time);
@@ -107,6 +112,7 @@ int main(void) {
     /*
      * Iterate over all of the axes and step them when their time comes up. 
      */
+    //fastClear(LOOP_TICK_PIN);
     active_axes = 0;
     now = micros();
     for (int axis = 0; axis < N_AXES; axis ++){

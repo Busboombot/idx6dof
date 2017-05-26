@@ -67,17 +67,19 @@ class SegmentList(object):
         """Add a new segment, with joints expressing joint distance """
         assert len(joints) == self.n_joints
         
-        # Total length of the vector
-        vector_x = sqrt(sum( x**2 for x in joints))
+        max_t = max(float(x)/float(self.v_max) for x in joints )
         
         if t is None:
             if v is None:
                 v = self.v_max
-            t = vector_x/v
-                
-        if vector_x/t > self.v_max:
-            t = vector_x/self.v_max
-        
+                t = max_t
+            else:
+                vector_x = sqrt(sum( x**2 for x in joints)) # Total length of the vector
+                t = vector_x/v
+
+        elif max_t > t:
+            t  = max_t
+
         segmentjoints = []
         
         for i,x in enumerate(joints):
@@ -407,7 +409,7 @@ class JointSegment(object):
             ta = (self.v_max-v0)/a
             td = (self.v_max)/d
             x1 = ( .5*ta*(v0+self.v_max) + # Area under accel trapezoid
-                  .5*td*(v1+self.v_max) ) # Area under decel trapezoid
+                   .5*td*(v1+self.v_max) ) # Area under decel trapezoid
             
             # Any remaining distance to cover will be at constant v_max
             if x > x1:

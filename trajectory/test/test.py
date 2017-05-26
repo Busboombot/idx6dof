@@ -11,7 +11,7 @@ from math import sqrt
 from operator import attrgetter
 from time import sleep, time
 
-usb_port = '/dev/cu.usbmodemFD1421'
+usb_port = '/dev/cu.usbmodemFD1431'
 
 
         
@@ -118,18 +118,16 @@ class TestPoints(unittest.TestCase):
 
         n_axes = 6
         
-        sl = SegmentList(n_axes, 800, 1000)
+        sl = SegmentList(n_axes, 750, 5000)
 
+        m=1600
     
-        m=600
-    
-        for i in range(3):
-            sl.add_velocity_segment([m,0,0,0,0,0], t=1)
-            sl.add_velocity_segment([0,m,0,0,0,0], t=1)
-            sl.add_velocity_segment([0,0,m,0,0,0], t=1)
-            sl.add_velocity_segment([0,m,m,0,0,0], t=1)
-            sl.add_velocity_segment([m,m,m,0,0,0], t=1)
-                
+        for i in range(4):
+            sl.add_segment([m,0,0,0,0,0], t=2)
+            sl.add_segment([0,m,0,0,0,0], t=2)
+            sl.add_segment([0,0,m,0,0,0], t=2)
+            sl.add_segment([m,m,0,0,0,0])
+      
         print(sl)
 
 
