@@ -5,12 +5,24 @@
 #include "idx_stepper.h"
 #include "bithacks.h"
 
+#define DEBUG_PRINT_ENABLED false
+#define DEBUG_TICK_ENABLED true
+
 #define fastSet(pin) (digitalPinToPort(pin)->PIO_SODR |= digitalPinToBitMask(pin) ) 
 #define fastClear(pin) (digitalPinToPort(pin)->PIO_CODR |= digitalPinToBitMask(pin) )
 
+#if(DEBUG_TICK_ENABLED)
+  #define fastDebugSet(pin) (digitalPinToPort(pin)->PIO_SODR |= digitalPinToBitMask(pin) ) 
+  #define fastDebugClear(pin) (digitalPinToPort(pin)->PIO_CODR |= digitalPinToBitMask(pin) )
+#else
+  #define fastDebugSet(pin) ;
+  #define fastDebugClear(pin) ;
+#endif
+
 #define LOOP_TICK_PIN 14
 #define MESSAGE_TICK_PIN 15
-
+#define STARVED_TICK_PIN 16
+#define RESPONSE_TICK_PIN 17
 
 /*
  * Initialize the board, serial ports, etc. 
@@ -27,7 +39,8 @@ void init_board(){
   // Diagnostics
   pinMode(LOOP_TICK_PIN, OUTPUT); // Loop tick
   pinMode(MESSAGE_TICK_PIN, OUTPUT); // message tick
-  
+  pinMode(STARVED_TICK_PIN, OUTPUT); 
+  pinMode(RESPONSE_TICK_PIN, OUTPUT); 
 }
 
 int main(void) {
@@ -54,26 +67,34 @@ int main(void) {
   
   for (;;) {
 
-    //fastSet(LOOP_TICK_PIN);
+    // When idle, with no ticks being set ( but all are still cleared ) 
+    // takes about 16.5us
+
+    fastDebugSet(LOOP_TICK_PIN);
 
     cbuf.startLoop(); // Start diagnostic times. 
 
     // Load a byte from the serial port and possibly process
     // add a completed message to the queue. 
     cbuf.run(); 
-   
+    
+    fastClear(LOOP_TICK_PIN);
     /*
      * All of the axes have finished so clear out the message 
      */
     
     if (active_axes == 0 && msg != 0){
-      //Serial.print("Clear message ");Serial.println(msg->seq);
+      // Response, without setPositions: 42.5 us
+      fastDebugSet(RESPONSE_TICK_PIN);
+      
       cbuf.sendDone(*msg);
       cbuf.resetLoopTimes();
-      //cbuf.setPositions(positions);
+      cbuf.setPositions(steppers[0].getPosition(), steppers[1].getPosition(), steppers[2].getPosition(),
+                        steppers[3].getPosition(), steppers[4].getPosition(), steppers[5].getPosition());
 
       delete msg;
       msg = 0;
+      fastDebugClear(RESPONSE_TICK_PIN);
     }
     
     /*
@@ -82,9 +103,11 @@ int main(void) {
      */
 
     if( cbuf.size() > 0 && msg == 0 ){
-     
+      // Processing a message: 48.5 us or 66 us.
+      fastDebugSet(MESSAGE_TICK_PIN);
       msg = cbuf.getMessage();
-      if (false){
+      
+      #if(DEBUG_PRINT_ENABLED)
         Serial.print("Start: ql="); Serial.print(cbuf.size()); 
         Serial.print(" Mesg#"); Serial.print(msg->seq); 
         Serial.print(" t="); Serial.print(msg->segment_time);
@@ -94,17 +117,26 @@ int main(void) {
         Serial.print(" x="); Serial.print(msg->steps[0]);
         Serial.print(" crc=");Serial.print(msg->crc); 
         Serial.println(" ");
-      }
+      #endif
       
       for (int axis = 0; axis < N_AXES; axis ++){
         steppers[axis].setParams(micros(), msg->segment_time, msg->v0[axis], msg->v1[axis], msg->steps[axis]);
       }
+      
+      fastDebugClear(MESSAGE_TICK_PIN);
+    }
+
+    if (cbuf.size() == 0 && msg == 0){
+      fastDebugSet(STARVED_TICK_PIN);
+    } else {
+      fastDebugClear(STARVED_TICK_PIN);
     }
     
      /* Clear all of the pins, so setting a pin actually results in a
      * transition
      */
-    
+
+    // Clearing pins: 3us
     for (int axis = 0; axis < N_AXES; axis ++){
       steppers[axis].clearStep();
     }
@@ -112,7 +144,7 @@ int main(void) {
     /*
      * Iterate over all of the axes and step them when their time comes up. 
      */
-    //fastClear(LOOP_TICK_PIN);
+    
     active_axes = 0;
     now = micros();
     for (int axis = 0; axis < N_AXES; axis ++){
@@ -122,6 +154,8 @@ int main(void) {
     }
 
     cbuf.endLoop();
+
+    
 
   }
 

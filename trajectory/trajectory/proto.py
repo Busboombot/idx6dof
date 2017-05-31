@@ -138,8 +138,8 @@ class Response(object):
                 'H'+ # seq
                 'H'+ # code
                 '7H'+ # queue_size through max_loop_time
-                '6i'+ # Axis step positions
-                '6h'+ # Encoder diffs
+                '6h'+ # Axis step positions
+                '6i'+ # Encoder diffs
                 'I' ) # CRC
                 
     msg_header =  msg_fmt[:6]
@@ -182,8 +182,9 @@ class Response(object):
         self.padding 
         ) = p[0:9]
         
-        self.steps = p[9:15]
-        self.encoder_diffs = p[15:21]
+        self.encoder_diffs = p[9:15]
+        self.steps = p[15:21] 
+        
         
     def __repr__(self):
         return '<Resp #{} {} q({},{}) c({},{}) l({},{}) {} {} {} ({})>'.format(
@@ -233,7 +234,7 @@ class ResponseReader(serial.threaded.Protocol):
                     del self.sent[response.seq]
                     #print ("DONE", response)
                     
-                    self.callback(self.proto)
+                    self.callback(self.proto, response)
                 except KeyError:
                     print ("ERROR: No message for seq: {}".format(response.seq))
                 
@@ -299,7 +300,7 @@ class Proto(object):
         self.segment_list = SegmentList(n_axes, v_max=v_max, a_max=a_max, d_max = None)
 
         
-        def null_callback(proto):
+        def null_callback(proto, resp):
             pass
             
         self.callback = callback if callback is not None else null_callback

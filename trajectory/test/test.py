@@ -1,5 +1,5 @@
 from __future__ import print_function
-from tabulate import tabulate
+#from tabulate import tabulate
 from trajectory import Proto, Command, Response, SimSegment,  SegmentList, SegmentIterator, SegmentBuffer, \
                        Joystick
 from time import sleep, time
@@ -13,7 +13,7 @@ from time import sleep, time
 
 usb_port = '/dev/cu.usbmodemFD1431'
 
-
+usb_port = '/dev/ttyACM0'
         
 class TestPoints(unittest.TestCase):
     
@@ -209,6 +209,9 @@ class TestPoints(unittest.TestCase):
                         sleep(.01)  
                 else:
                     sleep(0.1)
+         
+    def test_ros(self):
+        
          
         
     def test_linear_segments(self):

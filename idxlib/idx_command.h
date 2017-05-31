@@ -202,6 +202,16 @@ public:
         }
     }
     
+    inline void setPositions(int32_t pos0,int32_t pos1,int32_t pos2,int32_t pos3,int32_t pos4,int32_t pos5){
+        cmd_response.steps[0] = pos0;
+        cmd_response.steps[1] = pos1;
+        cmd_response.steps[2] = pos2;
+        cmd_response.steps[3] = pos3;
+        cmd_response.steps[4] = pos4;
+        cmd_response.steps[5] = pos5;
+    }
+    
+    
 };
 
 
