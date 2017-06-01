@@ -223,15 +223,15 @@ class ResponseReader(serial.threaded.Protocol):
 
             if response.code == Response.RESPONSE_ACK:
                 try:
-                    self.sent[response.seq].state = Response.RESPONSE_ACK
-                    #print ("ACK", response)
+                    self.sent[int(response.seq)].state = Response.RESPONSE_ACK
+                    print ("ACK", response)
                 except KeyError as e:
-                    print ("ERROR: Got ack, but no message for seq: {}".format(response.seq))
-                    print (self.sent)
+                    print ("ERROR: Got ack, but no message for seq: {} ".format(response.seq))
+                    print ("Sent list has: ", self.sent.keys())
                     
             elif response.code == Response.RESPONSE_DONE:
                 try:
-                    del self.sent[response.seq]
+                    del self.sent[int(response.seq)]
                     #print ("DONE", response)
                     
                     self.callback(self.proto, response)
@@ -261,7 +261,7 @@ class ResponseReader(serial.threaded.Protocol):
         try:
             self.transport.write(msg.encode())
             msg.state = 'sent'
-            self.sent[msg.seq] = msg
+            self.sent[int(msg.seq)] = msg
             #print ("Wrote ", msg)
         except struct.error:
             print(msg)
