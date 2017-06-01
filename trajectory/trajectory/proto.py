@@ -224,11 +224,11 @@ class ResponseReader(serial.threaded.Protocol):
             if response.code == Response.RESPONSE_ACK:
                 try:
                     self.sent[int(response.seq)].state = Response.RESPONSE_ACK
-                    print ("ACK", response)
+                    #print ("ACK", response)
                 except KeyError as e:
-                    print ("ERROR: Got ack, but no message for seq: {} ".format(response.seq))
-                    print ("Sent list has: ", self.sent.keys())
-                    
+                    print ("ERROR: Got ack, but no message for seq: {}. Sent list has: {}  "
+                            .format(response.seq), self.sent.keys())
+                  
             elif response.code == Response.RESPONSE_DONE:
                 try:
                     del self.sent[int(response.seq)]
