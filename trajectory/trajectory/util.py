@@ -1,5 +1,6 @@
 
 
+import struct
 
 def sign(a): return (a>0) - (a<0)
 
@@ -31,9 +32,12 @@ freq_map = [
    mkmap(0, 1, 0, 8000 ),
    mkmap(0, 1, 0, 11000 ), 
    mkmap(0, 1, 0, 15000 ) 
-] 
+]
 
 
+def s32tou(v):
+    """Convert a signed 32 bit in to unsigned """
+    return struct.unpack('I', struct.pack('i', v))[0]
 
 def _find_getch():
     try:

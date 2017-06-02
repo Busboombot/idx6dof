@@ -1,19 +1,17 @@
 from __future__ import print_function
 #from tabulate import tabulate
 from trajectory import Proto, Command, Response, SimSegment,  SegmentList, SegmentIterator, SegmentBuffer, \
-                       Joystick
-from time import sleep, time
-import time
+                       Joystick, TimeoutException
+
 import csv        
 import unittest
 
-from math import sqrt
-from operator import attrgetter
+
 from time import sleep, time
 
 usb_port = '/dev/cu.usbmodemFD1431'
 
-usb_port = '/dev/ttyACM0'
+#usb_port = '/dev/ttyACM0'
         
 class TestPoints(unittest.TestCase):
     
@@ -131,22 +129,26 @@ class TestPoints(unittest.TestCase):
         print(sl)
 
 
-        with Proto(usb_port) as proto:
+        with Proto(usb_port, timeout=.2) as proto:
             for i, s in enumerate(SegmentIterator(sl)):
 
                 msg = Command(i, 10, int(s.t_seg*1000000), 
                             [ int(sj.v0) for sj in s.joints ],
                             [ int(sj.v1) for sj in s.joints ],
                             [ int(sj.x) for sj in s.joints ])
-                       
-                proto.write(msg)
-                print(msg)
 
-                if len(proto.sent) > 5:
-                    while len(proto.sent) > 2:
-                        sleep(.01)  
-                else:
-                    sleep(0.1)
+                print('RQST', msg)
+                proto.write(msg)
+
+                while True:
+
+                    try:
+                        proto.wait_done(i - 5)
+                        break
+                    except TimeoutException:
+                        print("WAITING", i, i-5)
+
+
 
 
     def test_direct_messages(self):
@@ -209,11 +211,7 @@ class TestPoints(unittest.TestCase):
                         sleep(.01)  
                 else:
                     sleep(0.1)
-         
-    def test_ros(self):
-        
-         
-        
+   
     def test_linear_segments(self):
 
         sl = SegmentList(6, 15000, 1)
