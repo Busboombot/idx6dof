@@ -5,8 +5,8 @@
 #include "idx_stepper.h"
 #include "bithacks.h"
 
-#define DEBUG_PRINT_ENABLED false
-#define DEBUG_TICK_ENABLED true
+#define DEBUG_PRINT_ENABLED true
+#define DEBUG_TICK_ENABLED false
 
 #define fastSet(pin) (digitalPinToPort(pin)->PIO_SODR |= digitalPinToBitMask(pin) ) 
 #define fastClear(pin) (digitalPinToPort(pin)->PIO_CODR |= digitalPinToBitMask(pin) )
@@ -23,6 +23,8 @@
 #define MESSAGE_TICK_PIN 15
 #define STARVED_TICK_PIN 16
 #define RESPONSE_TICK_PIN 17
+
+bool starvedToggle = false;
 
 /*
  * Initialize the board, serial ports, etc. 
@@ -128,7 +130,20 @@ int main(void) {
 
     if (cbuf.size() == 0 && msg == 0){
       fastDebugSet(STARVED_TICK_PIN);
+      if (starvedToggle == false){
+        starvedToggle = true;
+        #if(DEBUG_PRINT_ENABLED)
+          Serial.println("Starved");
+        #endif
+      }
     } else {
+
+      if (starvedToggle == true){
+        starvedToggle = false;
+        #if(DEBUG_PRINT_ENABLED)
+        Serial.println("No Starved");
+        #endif
+      }      
       fastDebugClear(STARVED_TICK_PIN);
     }
     

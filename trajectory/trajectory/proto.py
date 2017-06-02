@@ -89,7 +89,7 @@ class Proto(object):
             if len(self.acks) > 0:
                 ack = self.acks.pop(0)
                 self.last_ack = ack.seq
-                print("ACKB", self.last_ack)
+
                 break
 
     def wait_done(self, seq):
@@ -113,7 +113,6 @@ class Proto(object):
 
 
         return False
-
 
     def read_next(self, timeout=None):
         """Read a response, ACK or DONE"""
@@ -140,7 +139,7 @@ class Proto(object):
                 try:
                     self.sent[int(response.seq)].state = Response.RESPONSE_ACK
                     self.acks.append(response)
-                    print("ACKA", response, self.acks)
+
                 except KeyError as e:
                     print("ERROR: Got ack, but no message for seq: {}. Sent list has: {}  "
                           .format(response.seq), self.sent.keys())
