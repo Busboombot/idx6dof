@@ -24,7 +24,7 @@ class Proto(object):
 
     sync_str_n = struct.pack('<2c', *Command.sync_str)
 
-    def __init__(self, port, n_axes=6, a_max=500000, v_max=15000, callback=None, timeout=1):
+    def __init__(self, port, n_axes=6, a_max=500000, v_max=15000, callback=None, timeout=0):
         self.port = port
 
         baud = 1050000
@@ -114,13 +114,24 @@ class Proto(object):
 
         return False
 
+    def wait_backlog(self, n):
+        """Read next until the backlog is less than n"""
+
+
+        while True:
+            self.read_next()
+            if len(self.sent) <= n:
+                return
+
+
+
     def read_next(self, timeout=None):
         """Read a response, ACK or DONE"""
 
         d = self.ser.read()
 
         if not d:
-            raise TimeoutException()
+            return False
 
 
         self.buf.extend(d)
@@ -139,7 +150,7 @@ class Proto(object):
                 try:
                     self.sent[int(response.seq)].state = Response.RESPONSE_ACK
                     self.acks.append(response)
-
+                    #print("ACK ", response)
                 except KeyError as e:
                     print("ERROR: Got ack, but no message for seq: {}. Sent list has: {}  "
                           .format(response.seq), self.sent.keys())
@@ -148,7 +159,7 @@ class Proto(object):
                 try:
                     del self.sent[int(response.seq)]
                     self.dones.append(response)
-
+                    #print("DONE", response)
                     self.callback(self, response)
                 except KeyError:
                     print("ERROR: Got DONE for unknown seq: {}".format(response.seq))
@@ -158,7 +169,7 @@ class Proto(object):
 
             self.buf = self.buf[sync_idx + Response.size:]
 
-            return True
+        return True
 
-        return False
+
 

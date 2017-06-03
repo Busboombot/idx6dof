@@ -141,7 +141,7 @@ int main(void) {
       if (starvedToggle == true){
         starvedToggle = false;
         #if(DEBUG_PRINT_ENABLED)
-        Serial.println("No Starved");
+        Serial.println("+");
         #endif
       }      
       fastDebugClear(STARVED_TICK_PIN);
