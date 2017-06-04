@@ -24,7 +24,7 @@ class Proto(object):
 
     sync_str_n = struct.pack('<2c', *Command.sync_str)
 
-    def __init__(self, port, n_axes=6, a_max=500000, v_max=15000, callback=None, timeout=0):
+    def __init__(self, port, n_axes=6, a_max=50000, v_max=10000, callback=None, timeout=0):
         self.port = port
 
         baud = 1050000
@@ -44,6 +44,8 @@ class Proto(object):
 
         self.last_ack = 0
         self.last_done = 0
+
+        self.queue_length = 0
 
     def open(self):
         pass
@@ -79,18 +81,15 @@ class Proto(object):
             raise
 
         while True:
-
-            try:
-                self.read_next()
-            except TimeoutException:
-                print("Timeout wiating for ack for ", msg.seq, self.buf)
+            
+            if self.read_next() is False:
                 break
 
             if len(self.acks) > 0:
                 ack = self.acks.pop(0)
                 self.last_ack = ack.seq
-
                 break
+ 
 
     def wait_done(self, seq):
         """Wait until a sequence is done"""
@@ -101,8 +100,8 @@ class Proto(object):
             if self.last_done >= seq:
                 return True
 
-            self.read_next()
-
+            if self.read_next() is False:
+                break
 
             try:
                 done = self.dones.pop(0)
@@ -119,57 +118,62 @@ class Proto(object):
 
 
         while True:
-            self.read_next()
+            if self.read_next() is False:
+                break
+                
             if len(self.sent) <= n:
                 return
-
-
 
     def read_next(self, timeout=None):
         """Read a response, ACK or DONE"""
 
-        d = self.ser.read()
+        while True:
 
-        if not d:
-            return False
+            d = self.ser.read()
 
+            if not d:
+                return False
 
-        self.buf.extend(d)
+            self.buf.extend(d)
 
-        sync_idx = self.buf.find(self.sync_str_n)
+            sync_idx = self.buf.find(self.sync_str_n)
 
-        if (sync_idx >= 0 and len(self.buf) >= (sync_idx + Response.size)):
+            if (sync_idx >= 0 and len(self.buf) >= (sync_idx + Response.size)):
 
-            if sync_idx != 0:
-                # The sync string isn't the first two chars in the buffer, so there is garbage.
-                print("GARB", self.buf[:sync_idx])
+                if sync_idx != 0:
+                    # The sync string isn't the first two chars in the buffer, so there is garbage.
+                    print("GARB", self.buf[:sync_idx])
 
-            response = Response(self.buf[sync_idx:sync_idx + Response.size])
+                response = Response(self.buf[sync_idx:sync_idx + Response.size])
 
-            if response.code == Response.RESPONSE_ACK:
-                try:
-                    self.sent[int(response.seq)].state = Response.RESPONSE_ACK
-                    self.acks.append(response)
-                    #print("ACK ", response)
-                except KeyError as e:
-                    print("ERROR: Got ack, but no message for seq: {}. Sent list has: {}  "
-                          .format(response.seq), self.sent.keys())
+                if response.code == Response.RESPONSE_ACK:
+                    try:
+                        self.sent[int(response.seq)].state = Response.RESPONSE_ACK
+                        self.acks.append(response)
+                        #print("ACK ", response)
+                    except KeyError as e:
+                        print("ERROR: Got ack, but no message for seq: {}. Sent list has: {}  "
+                              .format(response.seq), self.sent.keys())
 
-            elif response.code == Response.RESPONSE_DONE:
-                try:
-                    del self.sent[int(response.seq)]
-                    self.dones.append(response)
-                    #print("DONE", response)
-                    self.callback(self, response)
-                except KeyError:
-                    print("ERROR: Got DONE for unknown seq: {}".format(response.seq))
+                elif response.code == Response.RESPONSE_DONE:
+                    try:
+                        del self.sent[int(response.seq)]
+                        self.dones.append(response)
+                    
+                        self.callback(self, response)
+                    
+                        self.queue_length = response.queue_size
+                    
+                    except KeyError:
+                        print("ERROR: Got DONE for unknown seq: {}".format(response.seq))
 
-            else:
-                print("ERROR: Unknown message type: " + str(response.code))
+                else:
+                    print("ERROR: Unknown message type: " + str(response.code))
 
-            self.buf = self.buf[sync_idx + Response.size:]
+                self.buf = self.buf[sync_idx + Response.size:]
 
-        return True
+                return response
+
 
 
 

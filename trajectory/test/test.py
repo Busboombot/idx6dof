@@ -86,16 +86,61 @@ class TestPoints(unittest.TestCase):
                 while proto.wait()>1:
                     pass
 
-    def test_rec_joy_moves_sl(self):
+    def test_rec_joy_moves_cmd(self):
 
         with open('joy_moves.csv') as f:
             moves = list(csv.reader(f))
 
         n_axes = 6
         
-        sl = SegmentList(n_axes, 1000, 15000)
+        sl = SegmentList(n_axes, 800, 15000)
         for m in moves:
-                sl.add_velocity_segment([float(e) for e in [m[1],m[2],m[3],0,0,0]],t=float(m[0]))
+                sl.add_velocity_segment([float(e) for e in [m[1],0,m[2],0,0,0]],
+                 t=float(m[0]))
+
+        last_velocities = [0]*n_axes
+        
+        with Proto(usb_port) as proto:
+            
+            for seq, m in enumerate(moves):
+                
+                dt = float(m[0])
+                velocities = [float(v)for v in [m[1],m[1],m[2],0,0,0]]
+              
+                x = [ .5*(v0+v1)*dt  for v0, v1 in zip(last_velocities, velocities) ]
+  
+                msg = Command(seq, 10, dt*1e6, last_velocities, velocities, x)
+           
+                proto.write(msg)
+                print(msg)
+                
+                last_velocities = velocities
+                
+                while proto.wait()>1:
+                    pass
+
+    def test_csv_moves(self):
+        from os.path import join, dirname, abspath
+        from operator import itemgetter
+        d = dirname(dirname(abspath(__file__)))
+
+        with open(join(d,'test','recorded_moves.csv')) as f:
+            moves = list(csv.DictReader(f))
+            
+        ig = itemgetter(*('axis0,axis1,axis2,axis3,axis4,axis5'.split(',')))
+        n_axes = 6
+        
+        sl = SegmentList(n_axes, 750, 15000)
+        
+        for m in moves:
+
+            sl.add_segment([float(e) for e in ig(m)],v=float(m['v']))
+
+        for i, s in enumerate(SegmentIterator(sl)):
+            print(i,s)
+            print(len(sl))
+
+        return 
 
         with Proto(usb_port) as proto:
             
@@ -116,18 +161,25 @@ class TestPoints(unittest.TestCase):
 
         n_axes = 6
         
-        sl = SegmentList(n_axes, 750, 5000)
+        sl = SegmentList(n_axes, 600, 60000)
 
-        m=1600
+        m=600
     
-        for i in range(4):
-            sl.add_segment([m,0,0,0,0,0], t=2)
-            sl.add_segment([0,m,0,0,0,0], t=2)
-            sl.add_segment([0,0,m,0,0,0], t=2)
-            sl.add_segment([m,m,0,0,0,0])
+        #for i in range(4):
+        #    sl.add_velocity_segment([m,0,0,0,0,0], t=0.1)
+        #    sl.add_velocity_segment([0,m,0,0,0,0], t=0.1)
+        #    sl.add_velocity_segment([0,0,m,0,0,0], t=0.1)
+        #    sl.add_velocity_segment([m,m,0,0,0,0], t=0.1)
+      
+        sl.add_velocity_segment([m,0,0,0,0,0], t=0.1)
       
         print(sl)
 
+        for i, s in enumerate(SegmentIterator(sl)):
+            print(i,s)
+
+
+        return 
 
         with Proto(usb_port, timeout=.2) as proto:
             for i, s in enumerate(SegmentIterator(sl)):

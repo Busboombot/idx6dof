@@ -60,10 +60,10 @@ class SegmentList(object):
     def add_velocity_segment(self, joints, t=None, x = None):
         """Add a new segment, with joints expressing velocities"""
         
-        return self.add_segment([_v*t for _v in joints], t = t)
+        return self.add_distance_segment([_v*t for _v in joints], t = t)
         
         
-    def add_segment(self, joints, t=None, v=None):
+    def add_distance_segment(self, joints, t=None, v=None):
         """Add a new segment, with joints expressing joint distance """
         assert len(joints) == self.n_joints
         
@@ -118,7 +118,7 @@ class SegmentList(object):
         if sum( 1 for e in segmentjoints if isinstance(e, TimeTooShortError )) > 0:
             
             t_min = max( j.t_min for j in segmentjoints if isinstance(j, TimeTooShortError ))
-            return self.add_segment(joints, t_min)
+            return self.add_distance_segment(joints, t_min)
            
         if len(self.segments):
             self.segments[-1].normalize_times()
@@ -215,7 +215,7 @@ class Segment(object):
          def calc_x(t, v0, v1, dir):
              x = t * (v0+v1)/2.
         
-             return SubSegmentJoint( x=(round(x,3)*dir), v0=(round(v0,3)*dir), v1=(round(v1,3)*dir))
+             return SubSegmentJoint( x=(round(x,0)*dir), v0=(round(v0,3)*dir), v1=(round(v1,3)*dir))
         
             
          if self.ta > 0:
@@ -529,8 +529,7 @@ class SegmentIterator(object):
             self.current_segment = None
         
         # Can't modify a named tuple
-        return SubSegment(t_seg=ss.t_seg, t=self.time, x=self.positions,
-                          joints=ss.joints)
+        return SubSegment(t_seg=ss.t_seg, t=self.time, x=self.positions, joints=ss.joints)
             
         
 

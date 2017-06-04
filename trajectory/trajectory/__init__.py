@@ -1,7 +1,7 @@
 
 
 from .util import freq_map
-from .segments import SegmentList, SegmentBuffer, Segment, JointSegment, SegmentIterator
+from .segments import SegmentList, SegmentBuffer, Segment, JointSegment, SegmentIterator, SegmentError
 from .sim import SimSegment
 from .messages import Command, Response
 from .joystick import PygameJoystick as Joystick
