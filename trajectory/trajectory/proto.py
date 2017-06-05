@@ -151,6 +151,7 @@ class Proto(object):
                     try:
                         self.sent[int(response.seq)].state = Response.RESPONSE_ACK
                         self.acks.append(response)
+                        self.callback(self, response)
                         self.queue_length = response.queue_size
                         self.queue_time = response.queue_time
                         self.last_ack = response.seq
