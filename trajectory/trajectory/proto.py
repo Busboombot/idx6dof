@@ -46,6 +46,7 @@ class Proto(object):
         self.last_done = 0
 
         self.queue_length = 0
+        self.queue_time = 0
 
     def open(self):
         pass
@@ -87,7 +88,7 @@ class Proto(object):
 
             if len(self.acks) > 0:
                 ack = self.acks.pop(0)
-                self.last_ack = ack.seq
+                
                 break
  
 
@@ -105,7 +106,7 @@ class Proto(object):
 
             try:
                 done = self.dones.pop(0)
-                self.last_done = done.seq
+                
 
             except IndexError:
                 pass
@@ -125,7 +126,7 @@ class Proto(object):
                 return
 
     def read_next(self, timeout=None):
-        """Read a response, ACK or DONE"""
+        """Read a response, ACK or DONE. Returns when input is exhausted or a response is available. """
 
         while True:
 
@@ -150,6 +151,9 @@ class Proto(object):
                     try:
                         self.sent[int(response.seq)].state = Response.RESPONSE_ACK
                         self.acks.append(response)
+                        self.queue_length = response.queue_size
+                        self.queue_time = response.queue_time
+                        self.last_ack = response.seq
                         #print("ACK ", response)
                     except KeyError as e:
                         print("ERROR: Got ack, but no message for seq: {}. Sent list has: {}  "
@@ -163,6 +167,9 @@ class Proto(object):
                         self.callback(self, response)
                     
                         self.queue_length = response.queue_size
+                        self.queue_time = response.queue_time
+                        self.last_done = response.seq
+                        #print("DONE ", response)
                     
                     except KeyError:
                         print("ERROR: Got DONE for unknown seq: {}".format(response.seq))

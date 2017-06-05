@@ -112,12 +112,13 @@ int main(void) {
       #if(DEBUG_PRINT_ENABLED)
         Serial.print("Start: ql="); Serial.print(cbuf.size()); 
         Serial.print(" Mesg#"); Serial.print(msg->seq); 
+        Serial.print(" qt="); Serial.print(cbuf.getQueueTime()); 
         Serial.print(" t="); Serial.print(msg->segment_time);
         Serial.print(" code="); Serial.print(msg->code);
         Serial.print(" v0="); Serial.print(msg->v0[0]);
         Serial.print(" v1="); Serial.print(msg->v1[0]);
         Serial.print(" x="); Serial.print(msg->steps[0]);
-        Serial.print(" crc=");Serial.print(msg->crc); 
+        //Serial.print(" crc=");Serial.print(msg->crc); 
         Serial.println(" ");
       #endif
       

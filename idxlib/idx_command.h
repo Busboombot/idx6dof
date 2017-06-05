@@ -44,18 +44,19 @@ struct response {
     uint16_t seq = 0; // Packet sequence // 2
     uint16_t code = 0; // command code // 2
     uint16_t queue_size; // 2
+    uint32_t queue_time; // 4
     uint16_t queue_min_seq; // 2
     uint16_t min_char_read_time; // 2
     uint16_t max_char_read_time; // 2
     uint16_t min_loop_time; // 2
     uint16_t max_loop_time; // 2
     uint16_t padding = 0xBEEF; // 2
-    // 20 
+    // 24
     int16_t encoder_diffs[N_AXES] = {0,0,0,0,0,0}; // 12
     int32_t steps[N_AXES] = {0,0,0,0,0,0};  // 24
     
     uint32_t crc = 0; // Payload CRC // 4
-}; // 60
+}; // 64
 
 
 /*
@@ -90,6 +91,8 @@ private:
     
     struct response cmd_response = {}; 
     
+    uint32_t queue_time = 0; // Total time of commands on Queue
+    
     uint32_t loop_start;
     uint32_t char_start;
     
@@ -118,7 +121,9 @@ public:
             return 0 ;
         }
         
-        return commands.shift();
+        struct command * cmd =  commands.shift();
+        queue_time -= cmd->segment_time;
+        return cmd;
         
     }
     
@@ -142,7 +147,7 @@ public:
         
         response.seq = seq;
         response.code = code;  
-        
+        response.queue_time = queue_time;
         //Serial.print("Send #");Serial.print(response.seq);Serial.print(" ");Serial.println(response.code);
         
         uint32_t crc  = CRC32::checksum( (const uint8_t*)&response, 
@@ -211,7 +216,9 @@ public:
         cmd_response.steps[5] = pos5;
     }
     
-    
+    inline uint32_t getQueueTime() {
+        return queue_time;
+    }
 };
 
 

@@ -126,7 +126,9 @@ class Response(object):
         '<2c' +  # Sync code "IDXC"
         'H' +  # seq
         'H' +  # code
-        '7H' +  # queue_size through max_loop_time
+        'H' + # queue size
+        'I' + # queue_time
+        '6H' +  # queue_min_seq through padding
         '6h' +  # Axis step positions
         '6i' +  # Encoder diffs
         'I')  # CRC
@@ -139,6 +141,7 @@ class Response(object):
         self.code = 0  # Packet sequence #2
 
         self.queue_size = None  # 2
+        self.queue_time = None  # 4
         self.queue_min_seq = None  # 2
         self.min_char_read_time = None  # 2
         self.max_char_read_time = None  # 2
@@ -161,21 +164,22 @@ class Response(object):
         (self.seq,
          self.code,
          self.queue_size,
+         self.queue_time,
          self.queue_min_seq,
          self.min_char_read_time,
          self.max_char_read_time,
          self.min_loop_time,
          self.max_loop_time,
          self.padding
-         ) = p[0:9]
+         ) = p[0:10]
 
-        self.encoder_diffs = p[9:15]
-        self.steps = p[15:21]
+        self.encoder_diffs = p[10:16]
+        self.steps = p[16:233]
 
     def __repr__(self):
-        return '<Resp #{} {} q({},{}) c({},{}) l({},{}) {} {} {} ({})>'.format(
+        return '<Resp #{} {} q({},{},{}) c({},{}) l({},{}) {} {} {} ({})>'.format(
             self.seq, self.code,
-            self.queue_size, self.queue_min_seq,
+            self.queue_size, self.queue_time, self.queue_min_seq,
             self.min_char_read_time, self.max_char_read_time,
             self.min_loop_time, self.max_loop_time,
             self.steps, self.encoder_diffs, self.crc, self.state)

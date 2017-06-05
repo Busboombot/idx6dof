@@ -38,6 +38,7 @@ int IDXCommandBuffer::run(){
                  
                 if (crc == last_command->crc){
                     commands.add(last_command);
+                    queue_time += last_command->segment_time;
                     sendAck(*last_command);
                     resetCharReadTimes();
                     //Serial.print("ACK ");Serial.println(last_command->seq);
