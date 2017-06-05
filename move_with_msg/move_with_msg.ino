@@ -115,9 +115,14 @@ int main(void) {
         Serial.print(" qt="); Serial.print(cbuf.getQueueTime()); 
         Serial.print(" t="); Serial.print(msg->segment_time);
         Serial.print(" code="); Serial.print(msg->code);
-        Serial.print(" v0="); Serial.print(msg->v0[0]);
-        Serial.print(" v1="); Serial.print(msg->v1[0]);
-        Serial.print(" x="); Serial.print(msg->steps[0]);
+        //Serial.print(" v0="); Serial.print(msg->v0[0]);
+        Serial.print(" "); Serial.print(msg->v1[0]);
+        Serial.print(" "); Serial.print(msg->v1[1]);
+        Serial.print(" "); Serial.print(msg->v1[2]);
+        Serial.print(" "); Serial.print(msg->v1[3]);
+        Serial.print(" "); Serial.print(msg->v1[4]);
+        Serial.print(" "); Serial.print(msg->v1[5]);
+        //Serial.print(" x="); Serial.print(msg->steps[0]);
         //Serial.print(" crc=");Serial.print(msg->crc); 
         Serial.println(" ");
       #endif
