@@ -1,0 +1,6 @@
+[submodule "step-generator/lib/FastCRC"]
+	path = step-generator/lib/FastCRC
+	url = https://github.com/FrankBoesing/FastCRC.git
+[submodule "step-generator/lib/Unity"]
+	path = step-generator/lib/Unity
+	url = https://github.com/ThrowTheSwitch/Unity.git
