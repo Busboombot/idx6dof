@@ -1,0 +1,1 @@
+ATTR{manufacturer}=="Teensyduino", ATTR{serial}=="6421380", SYMLINK="stepper"

@@ -1,0 +1,15 @@
+<launch>
+  <node name="joystick" pkg="joy" type="joy_node" />
+  <param name="/joystick/dev" value="/dev/input/js1" /> 
+ 
+  <param name="/joystick/coalesce_interval" value="0.05" />
+
+  <node name="stepper" pkg="stepper" type="stepper_node" respawn="true" />
+  <param name="/stepper/port" value="/dev/serial/by-id/usb-Teensyduino_USB_Serial_6421380-if00" />
+  
+  <!-- <node name="sw_pendant" pkg="rosserial_python" type="serial_node.py" respawn="true" /> -->km`
+  <param name="/sw_pendant/port" value="/dev/serial/by-id/usb-Arduino_Srl_Arduino_Uno_5543130393735101E001-if00" />
+
+  <rosparam command="load" file="$(find idxrobot)/config.yaml" />
+  
+</launch>

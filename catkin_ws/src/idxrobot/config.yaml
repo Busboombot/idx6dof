@@ -1,0 +1,36 @@
+stepper: 
+    baud: 115200
+    
+    n_axes: 6
+    interrupt_delay: 4
+    debug_print: false
+    debug_tick: false
+    v_max: 25000
+    a_max: 2000000
+    axis0: # A Axis
+        step_pin: 2
+        direction_pin: 3
+        enable_pin: 4
+    axis1: # B Axis
+        step_pin: 8
+        direction_pin: 9
+        enable_pin: 10
+    axis2: # C Axis
+        step_pin: 15
+        direction_pin: 16
+        enable_pin: 17
+    axis3: # X Axis
+        step_pin: 18
+        direction_pin: 19
+        enable_pin: 20
+    axis4: # Y Axis
+        step_pin: 21
+        direction_pin: 22
+        enable_pin: 23
+    axis5: # Z Axis
+        step_pin: 5
+        direction_pin: 6
+        enable_pin: 7
+    
+
+  
