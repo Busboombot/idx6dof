@@ -34,13 +34,11 @@ uint32_t a_max = 3e6;
 uint32_t v_max = 10e6;
 
 long ms(){
+    static ros::Time start = ros::Time::now();
     
-    ros::Time t = ros::Time::now();
-    
-    double ms1 = ((double)t.sec)*1000.;
-    double ms2 = ((double)t.nsec)/1000000.;
-    
-    return (long)round(ms1+ms2);
+    ros::Time now = ros::Time::now();
+
+    return (long)round( (now.toSec()-start.toSec())*1000);
 }
 
 void report(MessageProcessor &mp){
@@ -260,7 +258,6 @@ void config(ros::NodeHandle &nh,  MessageProcessor &mp){
             mp.sendAxisConfig(as);
         }
     }
-
 }
 
 int main(int argc, char **argv) {
