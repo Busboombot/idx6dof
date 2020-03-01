@@ -28,10 +28,10 @@ def make_sl(moves, a_max=300_000):
 class TestBasic(unittest.TestCase):
 
     def test_basic(self):
-        import saleae, time
-        s = saleae.Saleae()
-        s.capture_start()
-        time.sleep(.5)
+        #import saleae, time
+        #s = saleae.Saleae()
+        #s.capture_start()
+        #time.sleep(.5)
 
         def cb(p,m):
             print(m,p.current_state.positions)
@@ -40,20 +40,23 @@ class TestBasic(unittest.TestCase):
 
         p = SyncProto(packet_port, baudrate)
 
+        v_max = 5e3
+        a_max = 3e6
+
+        d = v_max / 3
+
         axes=[
-            AxisConfig(0, 7,6,5, 50e3, 3e5),    # X
-            AxisConfig(1, 4,3,2, 50e3, 3e5), # Y
-            AxisConfig(2, 20,19,18, 50e3, 3e5), # Z
-            AxisConfig(3, 10,9,8, 50e3, 3e5), # C
-            AxisConfig(4, 23,22,21, 50e3, 3e5), # A
-            AxisConfig(5, 17,16,15, 50e3, 3e5)   , # B
+            AxisConfig(0, 21,21,23, v_max, a_max),    # X
+            AxisConfig(1, 18,19,20, v_max, a_max), # Y
+            AxisConfig(2, 15,16,17, v_max, a_max), # Z
+            AxisConfig(3, 5,6,7, v_max, a_max), # C
+            AxisConfig(4, 8,9,10, v_max, a_max), # A
+            AxisConfig(5, 2,3,4, v_max, a_max)   , # B
         ]
 
         p.config(axes=axes)
 
-        d = 40000
-
-        move = [0,0,0,0,d,0]
+        move = [d,d,d,d,d,d]
 
         while(True):
             p.amove(move)

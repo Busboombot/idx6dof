@@ -19,6 +19,8 @@ typedef enum
 } Direction;
 
 
+
+
 // 2,000 rpm for a 1.8deg stepper is 400,000 steps per min, 7K steps 
 // per sec. For a 10 ustep driver, 70KHz step pulse. 
 
@@ -41,13 +43,16 @@ protected:
     friend class StepperState;
     friend class Loop;
 
+    uint8_t enable_active = 1;
+    uint8_t enable_inactive = 0;
+
 public:
     
     inline StepInterface(uint8_t axis_n, uint8_t stepPin, uint8_t directionPin, 
      uint8_t enablePin): axis_n(axis_n), stepPin(stepPin), directionPin(directionPin), enablePin(enablePin) {
         pinMode(stepPin, OUTPUT);
         pinMode(directionPin, OUTPUT);
-        pinMode(enablePin, OUTPUT);
+        pinMode(enablePin, INPUT_DISABLE); // RESET signal doesn't work
     }
  
     
@@ -70,18 +75,18 @@ public:
     }
 
     inline void enable(){
-        digitalWriteFast(enablePin, LOW);  // Usually active low 
+        digitalWriteFast(enablePin, enable_active);  // Usually active low 
     }
     
     inline void enable(Direction dir){
         if(dir != STOP){
-            digitalWriteFast(enablePin, LOW);  // Usually active low 
+            digitalWriteFast(enablePin, enable_active);  // Usually active low 
         }
         setDirection(dir);
     }
     
     inline void disable(){
-        digitalWriteFast(enablePin, HIGH);// Active low
+        digitalWriteFast(enablePin, enable_inactive);// Active low
         setDirection(STOP);
     }
     
