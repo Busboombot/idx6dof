@@ -239,6 +239,7 @@ class StateMachine {
     Button buttons[NBUTTONS];
 
     String stateLabel;
+    String lastStateLabel;
 
     #define SB_LEN 100
     char str_buf[SB_LEN];
@@ -371,7 +372,7 @@ class StateMachine {
       stateInit = false;
       // Initialize the state
       execState();
-      pt("New State:"); ps; pl(stateLabel);
+      //pt("New State:"); ps; pl(stateLabel);
      
     }
 
@@ -401,6 +402,8 @@ class StateMachine {
       pinMode(lowPowerPin, OUTPUT);
 
       updateButtons();
+
+      lastStateLabel = "__init__";
      
     }
 
@@ -412,6 +415,7 @@ class StateMachine {
     void toOffState() {
       setRunCurrentState(&StateMachine::offState);
     }
+
     void toLowPowerOnState()  {
       setRunCurrentState(&StateMachine::lowPowerOnState);
     }
@@ -427,6 +431,20 @@ class StateMachine {
 
     void execState(){
       (((StateMachine*)this)->*StateMachine::current_state) ();
+    }
+
+
+    bool commandStateChange(String ns){
+
+      if (ns == "off") toOffState();
+      else if (ns == "on") toOnState();
+      else if (ns == "lowpower") toLowPowerOnState();
+      else if (ns == "highpower") toFullPowerOnState();
+      else if (ns == "error") toErrorState();
+      else return false;
+
+      return true;
+      
     }
 
     void buttonsChanged(){
@@ -477,6 +495,15 @@ class StateMachine {
       stateLabel.toCharArray(str_buf, SB_LEN);
       return str_buf;
     }
+
+
+    bool stateChanged(){
+      if (stateLabel != lastStateLabel){
+        lastStateLabel = stateLabel;
+        return true;
+      }
+      return false;
+    }
 };
 
 
@@ -486,15 +513,13 @@ StateMachine sm(3,9, 10, 11, 12, 43, 45) ;
 
 void setup() {
   Serial.begin(9600);
-  Serial.println("Starting...");
-  Serial.print(NBUTTONS);
-  Serial.println(" buttons");
-  sm.printButtons();
-  sm.toOffState();
-
-
   
- 
+  //Serial.println("Starting...");
+  //Serial.print(NBUTTONS);
+  //Serial.println(" buttons");
+  //sm.printButtons();
+  
+  sm.toOffState();
   u8g.setFont(u8g_font_unifont);
   
 }
@@ -519,5 +544,19 @@ void loop() {
   if(sm.update()){
     draw();
   }
-  
+
+  while(Serial.available()) {
+
+    String a=Serial.readString();// read the incoming data as string
+    a.trim();
+
+    if (sm.commandStateChange(a)){
+      draw();
+    }
+  }
+
+  if (sm.stateChanged()){
+    pl(sm.getStateLabel());
+  }
+
 }
