@@ -239,6 +239,7 @@ class StateMachine {
     Button buttons[NBUTTONS];
 
     String stateLabel;
+    String lastStateLabel;
 
     #define SB_LEN 100
     char str_buf[SB_LEN];
@@ -300,7 +301,7 @@ class StateMachine {
     }
     
     void lowPowerOnState() {
-      stateLabel = "lowPower";
+      stateLabel = "lowpower";
 
       if (!stateInit){
         turnOffHighPower();
@@ -320,7 +321,7 @@ class StateMachine {
       
     }
     void fullPowerOnState()  {
-      stateLabel = "fullPower";
+      stateLabel = "highpower";
       
       if (!stateInit){
         turnOnHighPower();
@@ -371,7 +372,7 @@ class StateMachine {
       stateInit = false;
       // Initialize the state
       execState();
-      pt("New State:"); ps; pl(stateLabel);
+      //pt("New State:"); ps; pl(stateLabel);
      
     }
 
@@ -394,13 +395,20 @@ class StateMachine {
     StateMachine(int ledPin, int powerPin, int estopPin, int keyPin, int resetPin, 
                  int highPowerPin, int lowPowerPin) : 
       led(ledPin), 
-      buttons( {Button("reset",resetPin, false),Button("key",keyPin, false),Button("estop",estopPin, false),Button("power",powerPin, false)}),
+      buttons( {
+        Button("reset",resetPin, false),
+        Button("key",keyPin, false),
+        Button("estop",estopPin, false),
+        Button("power",powerPin, false)}),
+        
       highPowerPin(highPowerPin), lowPowerPin(lowPowerPin) {
 
       pinMode(highPowerPin, OUTPUT);
       pinMode(lowPowerPin, OUTPUT);
 
       updateButtons();
+
+      lastStateLabel = "__init__";
      
     }
 
@@ -412,6 +420,7 @@ class StateMachine {
     void toOffState() {
       setRunCurrentState(&StateMachine::offState);
     }
+
     void toLowPowerOnState()  {
       setRunCurrentState(&StateMachine::lowPowerOnState);
     }
@@ -429,9 +438,23 @@ class StateMachine {
       (((StateMachine*)this)->*StateMachine::current_state) ();
     }
 
+
+    bool commandStateChange(String ns){
+
+      if (ns == "off") toOffState();
+      else if (ns == "on") toOnState();
+      else if (ns == "lowpower") toLowPowerOnState();
+      else if (ns == "highpower") toFullPowerOnState();
+      else if (ns == "error") toErrorState();
+      else return false;
+
+      return true;
+      
+    }
+
     void buttonsChanged(){
 
-       printButtons();
+        //printButtons();
 
         // Possibly transition states
         execState();
@@ -465,17 +488,26 @@ class StateMachine {
     }
 
     void printButtons(){
-       pt("State: "); pt(stateLabel);pt(" Buttons: "); ps;
+        //pt("State: "); pt(stateLabel);pt(" Buttons: "); ps;
         for(int i = 0; i < NBUTTONS; i++){
           pt(buttons[i].label());pt(":");ps;pt(buttons[i].state());ps;
         }
-        pl();
+       
     }
 
 
     char* getStateLabel(){
       stateLabel.toCharArray(str_buf, SB_LEN);
       return str_buf;
+    }
+
+
+    bool stateChanged(){
+      if (stateLabel != lastStateLabel){
+        lastStateLabel = stateLabel;
+        return true;
+      }
+      return false;
     }
 };
 
@@ -486,15 +518,13 @@ StateMachine sm(3,9, 10, 11, 12, 43, 45) ;
 
 void setup() {
   Serial.begin(9600);
-  Serial.println("Starting...");
-  Serial.print(NBUTTONS);
-  Serial.println(" buttons");
-  sm.printButtons();
-  sm.toOffState();
-
-
   
- 
+  //Serial.println("Starting...");
+  //Serial.print(NBUTTONS);
+  //Serial.println(" buttons");
+  //sm.printButtons();
+  
+  sm.toOffState();
   u8g.setFont(u8g_font_unifont);
   
 }
@@ -519,5 +549,19 @@ void loop() {
   if(sm.update()){
     draw();
   }
-  
+
+  while(Serial.available()) {
+
+    String a=Serial.readString();// read the incoming data as string
+    a.trim();
+
+    if (sm.commandStateChange(a)){
+      draw();
+    }
+  }
+
+  if (sm.stateChanged()){
+    pl(sm.getStateLabel());
+  }
+
 }
