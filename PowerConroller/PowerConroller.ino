@@ -301,7 +301,7 @@ class StateMachine {
     }
     
     void lowPowerOnState() {
-      stateLabel = "lowPower";
+      stateLabel = "lowpower";
 
       if (!stateInit){
         turnOffHighPower();
@@ -321,7 +321,7 @@ class StateMachine {
       
     }
     void fullPowerOnState()  {
-      stateLabel = "fullPower";
+      stateLabel = "highpower";
       
       if (!stateInit){
         turnOnHighPower();
@@ -395,7 +395,12 @@ class StateMachine {
     StateMachine(int ledPin, int powerPin, int estopPin, int keyPin, int resetPin, 
                  int highPowerPin, int lowPowerPin) : 
       led(ledPin), 
-      buttons( {Button("reset",resetPin, false),Button("key",keyPin, false),Button("estop",estopPin, false),Button("power",powerPin, false)}),
+      buttons( {
+        Button("reset",resetPin, false),
+        Button("key",keyPin, false),
+        Button("estop",estopPin, false),
+        Button("power",powerPin, false)}),
+        
       highPowerPin(highPowerPin), lowPowerPin(lowPowerPin) {
 
       pinMode(highPowerPin, OUTPUT);
@@ -449,7 +454,7 @@ class StateMachine {
 
     void buttonsChanged(){
 
-       printButtons();
+        //printButtons();
 
         // Possibly transition states
         execState();
@@ -483,11 +488,11 @@ class StateMachine {
     }
 
     void printButtons(){
-       pt("State: "); pt(stateLabel);pt(" Buttons: "); ps;
+        //pt("State: "); pt(stateLabel);pt(" Buttons: "); ps;
         for(int i = 0; i < NBUTTONS; i++){
           pt(buttons[i].label());pt(":");ps;pt(buttons[i].state());ps;
         }
-        pl();
+       
     }
 
 
