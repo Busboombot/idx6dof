@@ -152,7 +152,7 @@ bool IDXPendant::run_once() {
   for (int i = 0 ; i < NUM_OUT_PINS; i++){
    
     digitalWrite(outpins[i], HIGH);  
-    delayMicroseconds(10); // Delay needed to get output pin to stabilize
+    delayMicroseconds(1); // Delay needed to get output pin to stabilize
     for (int j = 0 ; j < NUM_IN_PINS; j++){
 
         if (digitalRead(inpins[j])){
@@ -167,7 +167,7 @@ bool IDXPendant::run_once() {
     }
   
     digitalWrite(outpins[i], LOW);  
-    delayMicroseconds(10); // Delay needed to get output pin to stabilize
+    delayMicroseconds(1); // Delay needed to get output pin to stabilize
   }
 
   // The ESTOP is special -- it has dedicated pins. 
