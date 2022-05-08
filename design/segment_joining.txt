@@ -1,0 +1,66 @@
+
+
+Processing a path. 
+
+Segments of a path must be porcessed together, with the first segment and the last segment having starting and ending velocities of zero. If a new segment is added to the path, the terminating segment can be removed, so the velocity does not got to zero in the middle of the path.
+
+Points on the path can either be "waypoints" which the path must go through, or "control" points, with the path aims for. The difference is that all axis come to zero velocity on a waypoint, but can have a non-zero velocity at a control point. 
+
+Each segment has a vector velocity, which is decomposed into joint velocities. 
+
+Segments have three stages:
+* Attack. Accelerating to max speed
+* Sustain. Holding a max speed
+* Release. Declerating to final speed. 
+
+Each segment must maintain a constant x, x=vt, so v and t can vary to maintain constant x. The segment is given a target velocity, vg, which may be adjusted  to maintain constant x
+
+For 
+	Fixed by end points
+		v0 = initial velocity
+		v1 = final velocity
+	Fixed by max accel and decel
+		tb1 = Acceleration break point
+		tb2 = Deceleration break point
+	Variable Params
+		vs = sustain velocity
+		t = segment time
+
+x = vs*t - .5*tb1*(vs-v0) - .5*(t-tb2)*(vs-v1)
+
+The v1 and v0 parameters are set to match the velocities of adjent sections, then the other parameters are adjusted to maintain constant x with a goal of minimizing v-vg.
+
+## Accel break and Decel break
+
+vs = a*tb1 + v0
+(vs-v0)/a = tb1
+
+tb2p = t-tb2
+(vs-v1)/a = tb2p ( a is usually negative)
+-(vs-v1)/a - t = tb2
+
+
+Then, solve for Vs.
+
+## Minimum and maximum segment distances
+
+Minimum distance for a segment is the area of the attack subsegment, so for a non-zero v0, there is a non-zero minimum distance. If the segment distance is zero, v0 must be zero. 
+
+There is also a maximum distance, set by the max velocity, or by the max velocity achievable with the attack and release subsegments. The max distance can be increased by increasing the segment time.
+
+
+## Aligning attack and release breaks
+
+Find the join with the latest attack break, and move all of the other breaks back. The, all of the accelleration periods will align, maintaining straight line motion. 
+
+
+## Links
+
+Trapezoid velocity profiles
+http://www-lar.deis.unibo.it/people/cmelchiorri/Files_Robotica/FIR_07_Traj_1.pdf
+http://www.nt.ntnu.no/users/skoge/prost/proceedings/ifac2005/Fullpapers/02036.pdf
+On-Line Planning of Time-Optimal, Jerk-Limited Trajectories, Haschke,
+
+
+file:///Users/eric/Downloads/JoMaC_cikkjoe.pdf
+
