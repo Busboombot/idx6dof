@@ -13,14 +13,24 @@ ros::Publisher pendant_pub("sw_pendant", &str_msg);
 
 long nextTime;
 
+#define USE_SERIAL true
+
+//
+// ROS Version
+// 
 void setup()
 {
-  //Serial.begin(9600);
+#ifdef USE_SERIAL
+  Serial.begin(9600);
+  Serial.println("Starting pendant");
+#else
   nh.initNode();
   nh.advertise(pendant_pub);
   nh.loginfo("Starting pendant arduino node");
+#endif
   pendant.begin() ;
-  nextTime = millis();  
+  nextTime = millis(); 
+   
 }
 
 int pub_delay = 500;
@@ -30,15 +40,20 @@ void loop()
 
   if(pendant.run_once()){
       str_msg.data = pendant.outstr();
-      pendant_pub.publish( &str_msg );
+      nextTime-=pub_delay;
   }
 
   if( millis() - nextTime > pub_delay){
-    str_msg.data = pendant.outstr();
+#ifdef USE_SERIAL
+    Serial.println(str_msg.data);
+#else
     pendant_pub.publish( &str_msg );
+#endif
     nextTime = millis();
   }
-      
+
+#ifndef USE_SERIAL
   nh.spinOnce();
+#endif
   
 }
