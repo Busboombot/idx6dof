@@ -8,10 +8,11 @@
 */
 
 #include "U8glib.h"
-
+#include <SoftwareSerial.h>  
 
 
 #define NBUTTONS 4
+#define USE_OLED false
 
 #define pt(x) Serial.print(x)
 #define pl(x) Serial.println(x)
@@ -250,7 +251,7 @@ class StateMachine {
     bool checkReset() { return buttons[0].state()==true; }
     bool checkKeyOn() { return buttons[1].state()==true; }
     bool checkKeyOff(){ return buttons[1].state()==false; }
-    bool checkEStop() { return buttons[2].state()==true; }
+    bool checkEStop() { return buttons[2].state()==false; }
     bool checkPower() { return buttons[3].state()==true; }
 
     bool checkAbort(){
@@ -295,7 +296,7 @@ class StateMachine {
         }  else if (checkReset()){
           toOnState();
         }  else if (checkPower()){
-          toFullPowerOnState();  
+          toLowPowerOnState();  
         }
       }
     }
@@ -512,23 +513,30 @@ class StateMachine {
 };
 
 
+#if USE_OLED
 U8GLIB_SH1106_128X64 u8g(U8G_I2C_OPT_NONE);  // I2C / TWI 
+#endif 
 
 StateMachine sm(3,9, 10, 11, 12, 43, 45) ;
 
+SoftwareSerial alt_serial(7, 6); // RX, TX
+
 void setup() {
   Serial.begin(9600);
-  
-  //Serial.println("Starting...");
-  //Serial.print(NBUTTONS);
-  //Serial.println(" buttons");
-  //sm.printButtons();
+  alt_serial.begin(4800);
   
   sm.toOffState();
+#if USE_OLED
   u8g.setFont(u8g_font_unifont);
+#endif
+
+
+  alt_serial.println("INIT");
+  Serial.println("INIT");
   
 }
 
+#if USE_OLED
 void _draw(void) {
   // graphic commands to redraw the complete screen should be placed here  
   u8g.setFont(u8g_font_unifont);
@@ -542,26 +550,39 @@ void draw(void) {
     _draw();
   } while( u8g.nextPage() );
 }
+#endif
 
 void loop() {
 
-  
+
   if(sm.update()){
+#if USE_OLED
     draw();
+#endif
   }
 
   while(Serial.available()) {
 
     String a=Serial.readString();// read the incoming data as string
     a.trim();
-
     if (sm.commandStateChange(a)){
+#if USE_OLED
       draw();
+#endif
     }
   }
 
+  while(alt_serial.available()) {
+
+    String a=alt_serial.readString();// read the incoming data as string
+    a.trim();
+    sm.commandStateChange(a);
+  }
+
   if (sm.stateChanged()){
-    pl(sm.getStateLabel());
+    alt_serial.println(sm.getStateLabel());
+    Serial.println(sm.getStateLabel());
+   
   }
 
 }
