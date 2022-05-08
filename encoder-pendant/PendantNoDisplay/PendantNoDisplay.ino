@@ -4,6 +4,7 @@
    This example code is in the public domain.
 */
 
+
 #include <Encoder.h>
 #include <EasyButton.h>
 #include <Arduino.h>
@@ -13,6 +14,8 @@
 #include "DigitalIO.h"
 
 byte LED_PIN = 5;
+byte ESTOP_PIN = 18;// A4
+byte ENSW_PIN = 19; // A6 Enable switch on side
 
 Encoder myEnc(3,2);
 
@@ -21,6 +24,15 @@ const uint8_t axis_switch_pins[] = { 9,8,7,6 };
 unsigned int last_axis_switch_time = 0;
 int last_axis_candidate = 0;
 int last_axis_switch = 0;
+
+const uint8_t speed_switch_pins[] = { 10,12,11 };
+#define N_SPEED_SWITCHES (sizeof(speed_switch_pins)/sizeof(*speed_switch_pins))
+unsigned int last_speed_switch_time = 0;
+int last_speed_candidate = 0;
+int last_speed_switch = 0;
+
+const uint8_t speeds[] = { 0, 1, 10, 100 };
+const char axes[] = { 'N', 'X', 'Y', 'Z', 'W', 'O', 'A', 'B', 'C', 'D' };
 
 #define DEBOUNCE_DELAY 100
 
@@ -48,14 +60,7 @@ uint8_t read_axis_switches(){
   return last_axis_switch;
 }
 
-const uint8_t speed_switch_pins[] = { 10,12,11 };
-#define N_SPEED_SWITCHES (sizeof(speed_switch_pins)/sizeof(*speed_switch_pins))
-unsigned int last_speed_switch_time = 0;
-int last_speed_candidate = 0;
-int last_speed_switch = 0;
 
-const uint8_t speeds[] = { 0, 1, 10, 100 };
-const char axes[] = { 'N', 'X', 'Y', 'Z', 'A', 'B', 'C' };
 
 uint8_t read_speed_switches(){
   // Read switches, with debouncing. 
@@ -79,12 +84,15 @@ uint8_t read_speed_switches(){
     }
   } 
 
-  return speeds[last_speed_switch];
+  return last_speed_switch;
 }
 
 unsigned int lastTime = 0;
-int32_t positions[N_AXIS_SWITCHES+1] = {0};
+int32_t positions[sizeof(axes)] = {0};
 int32_t last_pos  = 0;
+
+EasyButton enable_button(ENSW_PIN);
+EasyButton estop_button(ESTOP_PIN);
 
 void setup() {
   Serial.begin(9600);
@@ -103,21 +111,32 @@ void setup() {
   }
 
   pinMode(LED_PIN, OUTPUT);
+  pinMode(ESTOP_PIN, INPUT_PULLUP);
+  pinMode(ENSW_PIN, INPUT_PULLUP);
 
 }
 
-uint16_t last_switch = 0;
+int last_switch = 0;
 bool led_state = false;
 uint16_t v = 0;
 
 void loop() {
- 
-  uint8_t axis = read_axis_switches();
-  uint8_t spd = read_speed_switches();
 
-  uint8_t this_switch = axis*10+spd; // Keep track of changes to both switches
+  bool ensw = !enable_button.read(); // Enable Switch, selects axis
+ 
+  uint8_t axis_sw = read_axis_switches();
+  uint8_t spd_switch = read_speed_switches();
+  uint8_t spd=speeds[spd_switch];
+
+  bool estop = estop_button.read();
+  
+  int this_switch = spd_switch*1000 + estop*100+ensw*10+axis_sw; // Keep track of changes to both switches
+
+  uint8_t axis = axis_sw + ( ((int)!ensw)*5 );
   
   int32_t current_pos = myEnc.read(); 
+
+  current_pos /= 4; // The encoder increments by 4 each step
   
   if (current_pos != last_pos or this_switch != last_switch ) {
 
@@ -125,6 +144,11 @@ void loop() {
 
     positions[axis] += (current_pos - last_pos)*spd;
 
+    Serial.print(estop ? "-" : "S");
+    Serial.print(ensw ? "-" : "E");
+    Serial.print(spd_switch);
+    Serial.print(axis+1);
+    Serial.print(" ");
     Serial.print(axes[axis]);
     Serial.println(positions[axis]);
 
