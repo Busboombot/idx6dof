@@ -511,14 +511,18 @@ class StateMachine {
     }
 };
 
-StateMachine sm(3,9, 10, 11, 12, 43, 45) ;
+StateMachine sm(3,8, 9, 11, 12, 43, 45) ;
 
-SoftwareSerial alt_serial(7, 6); // RX, TX
+
+//SoftwareSerial alt_serial(15,14); // RX, TX
+#define alt_serial Serial2
 
 void setup() {
+  
+  sm.toOffState();
+  
   Serial.begin(9600);
   alt_serial.begin(9600);
-  
   alt_serial.println(">init");
   Serial.println(">init");
   
