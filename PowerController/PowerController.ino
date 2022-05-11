@@ -8,6 +8,8 @@
 */
 
 #include "U8glib.h"
+#include <stdio.h>
+#include <string.h>
 #include <SoftwareSerial.h>  
 
 
@@ -446,6 +448,7 @@ class StateMachine {
       else if (ns == "lowpower") toLowPowerOnState();
       else if (ns == "highpower") toFullPowerOnState();
       else if (ns == "error") toErrorState();
+      else if (ns == "?") ; // Just query the state
       else return false;
 
       return true;
@@ -513,60 +516,82 @@ class StateMachine {
 
 StateMachine sm(3,8, 9, 11, 12, 43, 45) ;
 
-
-//SoftwareSerial alt_serial(15,14); // RX, TX
-#define alt_serial Serial2
+#define COMMAND_BUF_LENGTH 40
+String command; // char command[COMMAND_BUF_LENGTH];
+String commandBuffers[] = {String(), String()};
 
 void setup() {
   
-  sm.toOffState();
+  sm.toOnState();
+
+  command.reserve(COMMAND_BUF_LENGTH);
+  commandBuffers[0].reserve(COMMAND_BUF_LENGTH);
+  commandBuffers[1].reserve(COMMAND_BUF_LENGTH);
   
   Serial.begin(9600);
-  alt_serial.begin(9600);
-  alt_serial.println(">init");
+  Serial2.begin(9600);
+  
+  Serial2.println(">init");
   Serial.println(">init");
   
 }
 
+void printCommand(char *prefix, String str){
+  Serial.print(prefix); Serial.println(str);
+  Serial2.print(prefix); Serial2.println(str);
+}
+
+
+// Read a command from a serial port and stuff it into 
+// the command string when done. 
+void buildCommand(HardwareSerial& serial, String& str){
+  while (serial.available() && command.length() == 0) { // Don't allow command to finish if a command is still active
+    // get the new byte:
+    char c = (char)serial.read();
+   
+    // add it to the inputString:
+
+    if (c == '\n' || c == '\r' ||str.length() == COMMAND_BUF_LENGTH) {
+      command = str;
+      
+      str = "";
+    } else {
+      str += c;
+      Serial.println(str);
+    }
+  }
+}
+
+void serialEvent() {
+  buildCommand(Serial, commandBuffers[0]);
+}
+
+void serialEvent2() {
+  buildCommand(Serial2, commandBuffers[1]);
+}
 
 void loop() {
-
-  String command;
 
 
   sm.update(); // Update leds for fading and blinking
 
-  // Check front-side serial for commands. These will come from a human user. 
-  if(Serial.available()) {
-    command=Serial.readString();// read the incoming data as string
-    command.trim();
-  }
-
-  // If the operator didn't command anything, check the back-side serial, 
-  // which is commands from the controller. 
- 
-  if (command.length() == 0 && alt_serial.available()) {
-      command=alt_serial.readString();// read the incoming data as string
-      command.trim();
-  }
-
   // If we got a command, display it, on both serial connections 
   if (command.length() > 0){
-    if(sm.commandStateChange(command)){
-        Serial.print(">"); Serial.println(command);
-        alt_serial.print(">"); alt_serial.println(command);
+    if(sm.commandStateChange(command)){ // True if the command is accepted
+      printCommand(">", command);
     } else {
-        // Bad command, or did not change state
-        Serial.print("-"); Serial.println(command);
-        alt_serial.print("-"); alt_serial.println(command);
+      // Bad command
+        printCommand("-", command);
     }
+
+    // Print changes in state to both serials. 
+    if (sm.stateChanged() || command == "?"){
+      printCommand("<", sm.getStateLabel());
+    }
+  
+    command = ""; // Clear the command 
   }
 
-  // Print changes in state to both serials. 
-  if (sm.stateChanged()){
-    alt_serial.print("<");alt_serial.println(sm.getStateLabel());
-    Serial.print("<");Serial.println(sm.getStateLabel());
-   
-  }
+
 
 }
