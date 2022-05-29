@@ -12,7 +12,7 @@
 #define BUFFER_SIZE 265
 #define MAX_PAYLOAD_SIZE  (BUFFER_SIZE-6) // 4 for header, 1 start, one zero at the end. 
 
-
+/* Enumeration that describe the contents of a command message */
 enum class CommandCode : uint8_t {
   
   ACK =     1,
@@ -36,7 +36,7 @@ enum class CommandCode : uint8_t {
   JMOVE =   23   // A Jog movement. 
 };
 
-
+/* Header on every command packet */
 struct PacketHeader {
   uint16_t seq;       // Packet sequence number
   CommandCode code;   // Command code      
@@ -101,7 +101,14 @@ public:
    send((const uint8_t*)&current_state, CommandCode::ACK, seq, sizeof(current_state));
   }
 
-  void sendNack(){ send(CommandCode::NACK, lastSegNum, 0); }
+  // An ACK with no current state
+  void sendEmptyAck(uint16_t seq){
+   send(CommandCode::ACK, seq, 0);
+  }
+
+  void sendNack(){ 
+    send(CommandCode::NACK, lastSegNum, 0); 
+  }
 
   void sendDone(uint16_t seq, CurrentState &current_state){ 
     send((const uint8_t*)&current_state, CommandCode::DONE, seq, sizeof(current_state));
@@ -123,8 +130,10 @@ private:
 
   uint8_t crc(size_t length);
 
+  // Perform operation for each type of message recieved
   void processPacket(const uint8_t* buffer_, size_t size);
 
+  
   void processMove(const uint8_t* buffer_, size_t size);
 
   void send(size_t length);

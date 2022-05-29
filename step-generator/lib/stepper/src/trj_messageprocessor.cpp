@@ -42,16 +42,17 @@ void MessageProcessor::send(CommandCode code, uint16_t seq, size_t length){
 void MessageProcessor::send(const uint8_t* buffer_, CommandCode code, uint16_t seq, size_t length){
     memcpy(buffer+sizeof(PacketHeader), buffer_, length>MAX_PAYLOAD_SIZE?MAX_PAYLOAD_SIZE:length);
     send(code, seq, length);
+    ser_printf("S s%d c%d l%d", seq, code, length);
 }
 
 void MessageProcessor::processPacket(const uint8_t* buffer_, size_t size){
     PacketHeader *ph = (PacketHeader*)buffer_;
-    ser_printf("Recieved seq=%d code=%d crc=%d len=%d", ph->seq, (int)ph->code, ph->crc, size);
+    ser_printf("R s%d c%d l%d", ph->seq, (int)ph->code, size-sizeof(PacketHeader));
 
     uint8_t that_crc = ph->crc;
     crc(size); // Calc crc on buffer, put back into ph. 
     if (that_crc != ph->crc){
-      //ser_printf("CRC error. Got %d, calculated %d", that_crc, ph->crc );
+      ser_printf("CRC error. Got %d, calculated %d", that_crc, ph->crc );
       sendNack();
       return;
     } 
@@ -59,8 +60,9 @@ void MessageProcessor::processPacket(const uint8_t* buffer_, size_t size){
     if(ph->code == CommandCode::NOOP){
       //Do Nothing
     } else if(ph->code == CommandCode::ECHO){
+      ser_printf("ECHO len %d ", size - sizeof(PacketHeader));
       send((const uint8_t*)buffer_ + sizeof(PacketHeader), ph->code, ph->seq, size - sizeof(PacketHeader));
-      //ser_printf("ECHO len %d ", size - sizeof(PacketHeader));
+      
       return; // Echos are their own ack.
 
     } else if(ph->code == CommandCode::RMOVE || ph->code == CommandCode::AMOVE  || ph->code == CommandCode::JMOVE ) {
@@ -76,13 +78,21 @@ void MessageProcessor::processPacket(const uint8_t* buffer_, size_t size){
       loop.reset();
 
     } else if(ph->code == CommandCode::CONFIG) {
+      ser_printf("CONFIG");
       loop.setConfig( (Config*) (buffer_+sizeof(PacketHeader)));
+      sendEmptyAck(ph->seq);
+      return;
 
     } else if(ph->code == CommandCode::AXES) {
+      ser_printf("CONFIG AXIS");
       loop.setAxisConfig( (AxisConfig*) (buffer_+sizeof(PacketHeader)));
+      sendEmptyAck(ph->seq);
+      return;
 
     } else if(ph->code == CommandCode::INFO) {
+      ser_printf("INFO");
       loop.printInfo();
+      
     }
   
     sendAck(ph->seq);

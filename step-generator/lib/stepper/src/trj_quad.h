@@ -9,7 +9,7 @@
 #include "trj_bithacks.h"
 #include "trj_fastset.h"
 #include "trj_debug.h"
-
+#include "trj_stepper.h"
 
 
 class StepInterface {

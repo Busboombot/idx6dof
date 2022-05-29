@@ -60,7 +60,9 @@ struct Move {
         x.resize(n_joints);
     }
 
-    Move(uint32_t seq, uint32_t t, int v): seq(seq), t(t), x(){}
+    Move(int n_joints, uint32_t seq, uint32_t t, int v): seq(seq), t(t), x(){
+        x.resize(n_joints);
+    }
 
     Move(uint32_t seq, uint32_t t, MoveType move_type, MoveArray x): move_type(move_type), t(t), x(x){}
 
@@ -104,7 +106,9 @@ public:
     Planner();
 
     // Reset the joints
-    void setNJoints(int n_joints){joints.resize(n_joints); }
+    void setNJoints(int n_joints){
+        joints.resize(n_joints); 
+    }
     void setJoint(Joint &joint);
 
     const std::vector<Joint> &getJoints(){ return joints;}

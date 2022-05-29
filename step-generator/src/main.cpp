@@ -1,4 +1,11 @@
+/*
+6 Axis step generator and trajectory planner
 
+Reads packets data from the serial port that represents 
+6 axis motion segments, determines the optimal acelleration and
+velocity for each segment, and generates step and direction pulses
+
+*/
 #include <Arduino.h>
 
 #include <limits.h>

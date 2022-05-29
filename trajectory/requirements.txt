@@ -3,3 +3,4 @@ threaded
 ansicolors
 numpy
 pandas
+cobs

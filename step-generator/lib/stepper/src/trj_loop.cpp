@@ -85,12 +85,16 @@ void Loop::setup(){
   
 }
 
+/* Run one iteration of the main loop
+*/
 void Loop::loopOnce(){
     loopTick(); // Blink the LED and toggle a debugging pin, to show we're not crashed. 
     runSerial(); // Get serial data and update queues 
     feedSteppers(); // Start stepper ISRs, if there is data. 
 }
 
+/* Display operaton status on the builtin LED
+*/
 void Loop::loopTick()    {
     static unsigned long last = millis();
     static bool ledToggle = true;
@@ -110,6 +114,8 @@ void Loop::runSerial(){
     sdp.update(); 
 }
 
+/* Update the steppers step and direction 
+*/
 void Loop::feedSteppers(){
 
   if (finished_phase){
@@ -206,6 +212,7 @@ void Loop::disable(){
 
 void Loop::setConfig(Config* config_, bool eeprom_write){
 
+  // FIXME EEPROM writing was failing?
   if (false and eeprom_write){
     EEPROM.put(EEPROM_OFFSET, *config_);
   }
@@ -218,20 +225,28 @@ void Loop::setConfig(Config* config_, bool eeprom_write){
   planner.setNJoints(config.n_axes);
 }
 
+// Configure a stepper for an axis. Creates a new StepperInterface object
+// for the axis
 void Loop::setAxisConfig(AxisConfig* as, bool eeprom_write){
   
+  int pos = 0;
+
   if(as->axis < config.n_axes){
 
+    ser_printf("Config axis %d out of %d",as->axis+1, config.n_axes);
+ 
+    // FIXME EEPROM writing was failing?
     if (false and eeprom_write)
       EEPROM.put(EEPROM_OFFSET+sizeof(Config)+(sizeof(AxisConfig)*as->axis), *as);
 
-    int pos = steppers[as->axis]->getPosition();
-
+    // Clear out any old stepper instance
     if (steppers[as->axis] != 0)
+      pos = steppers[as->axis]->getPosition(); // But save the position
       delete steppers[as->axis];
 
+    // Then make a new one. 
     steppers[as->axis] = new StepInterface(as->axis, as->step_pin, as->direction_pin, as->enable_pin);
-    
+
     steppers[as->axis]->setPosition(pos);
 
     Joint joint(as->axis,static_cast< float >(as->v_max), static_cast< float >(as->a_max));
@@ -239,15 +254,17 @@ void Loop::setAxisConfig(AxisConfig* as, bool eeprom_write){
   }
 }
 
+// Turn a move command into a move and add it to the planner
 void Loop::processMove(const uint8_t* buffer_, size_t size){
 
     PacketHeader *ph = (PacketHeader*)buffer_;
     Moves *m = (Moves*)(buffer_ + sizeof(PacketHeader));
   
-    Move move(ph->seq, m->segment_time, 0);
+    Move move(getConfig().n_axes, ph->seq, m->segment_time, 0);
 
     switch(ph->code){
         case CommandCode::RMOVE:
+     
         move.move_type = Move::MoveType::relative;
         break;
         
@@ -274,7 +291,7 @@ void Loop::processMove(const uint8_t* buffer_, size_t size){
 }
 
 void Loop::printInfo(){
-  
+
   sdp.printf("===========\n"
             "Queue Size : %d\n"
             "Queue Time : %d\n"
@@ -289,6 +306,11 @@ void Loop::printInfo(){
            config.debug_print, config.debug_tick) ;
   
   for(const Joint &j : planner.getJoints() ){
+
+    if(j.n>=config.n_axes){
+      continue;
+    }
+
     StepInterface &stepper = getStepper(j.n);
 
     sdp.printf("-- Axis %d \n"
@@ -300,6 +322,8 @@ void Loop::printInfo(){
             "Position   : %d\n",
             j.n, stepper.stepPin, stepper.directionPin, stepper.enablePin, 
             static_cast<int>(j.a_max), static_cast<int>(j.v_max),
-            stepper.getPosition());
+            stepper.getPosition()); 
+
+
   }
 }

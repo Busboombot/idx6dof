@@ -6,7 +6,7 @@ import sys
 
 from setuptools import find_packages
 import uuid
-import imp
+import importlib
 
 
 try:
@@ -35,7 +35,7 @@ classifiers = [
 
 setup(
     name='trajectory',
-    version=0.01,
+    version='0.0.1',
     description='Motion control trajectory planning and comminication with an embedded controller',
     long_description=readme,
     packages=packages,

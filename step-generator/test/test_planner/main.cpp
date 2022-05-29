@@ -20,6 +20,21 @@ extern time_t time(time_t *);
 unsigned __exidx_start;
 unsigned __exidx_end;
 
+// Fixes bug 
+// https://github.com/arduino/Arduino/issues/9413
+// https://github.com/arduino-libraries/ArduinoBearSSL/issues/54
+extern "C" {
+  // This must exist to keep the linker happy but is never called.
+  int _gettimeofday( struct timeval *tv, void *tzvp )
+  {
+    Serial.println("_gettimeofday dummy");
+    uint64_t t = 0;  // get uptime in nanoseconds
+    tv->tv_sec = t / 1000000000;  // convert to seconds
+    tv->tv_usec = ( t % 1000000000 ) / 1000;  // get remaining microseconds
+    return 0;  // return non-zero for error
+  } // end _gettimeofday()
+}
+
 void setUp(){
     
 }
@@ -123,8 +138,6 @@ struct RunOut run_out(Planner &p, bool print = false){
     struct RunOut ro;
     //FastCRC32 CRC32;
 
-    int n = 0;
-
     do {
         const PhaseJoints pj = p.getNextPhase();
 
@@ -136,7 +149,7 @@ struct RunOut run_out(Planner &p, bool print = false){
         // Stuipd fake CRC because I can't get platformio to link to 
         // the FastCRC library. 
        
-        for(int i=0; i< sizeof(crcv)/sizeof(crcv[0]); i++ ){
+        for(unsigned int i=0; i< sizeof(crcv)/sizeof(crcv[0]); i++ ){
             ro.crc += crcv[i];
         }
             
@@ -210,7 +223,7 @@ void test_big_rand(){
     }
     cout << "--> "  << p.getQueueTime() << " " << p.getQueueSize() << endl;
     
-    const PhaseJoints *pj;
+    //const PhaseJoints *pj;
 
     do {
         p.getNextPhase(); 

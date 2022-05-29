@@ -12,13 +12,10 @@
 #include <string.h>
 #include <SoftwareSerial.h>  
 
-
-#define NBUTTONS 4
-
 #define pt(x) Serial.print(x)
 #define pl(x) Serial.println(x)
 #define ps Serial.print(' ')
-
+#define pnl Serial.print('\n')
 
 class FadeLed {
 
@@ -138,7 +135,7 @@ class Button {
     unsigned long _delay;
     unsigned long _lastDebounceTime;
     int _lastStateBtn = HIGH;
-    bool _setState = false; // The  button state tht is considered "set"
+    bool _setState = false; // The  button state that is considered "set"
     bool _wasSet = false; // Flagged when button is True
     bool _wasUnset = false; // Flagged when button is True
 
@@ -181,7 +178,7 @@ class Button {
       
       stateChanged();
       
-   
+
     }
 
     int state(){
@@ -221,10 +218,16 @@ class Button {
     }
     
     
-    int stateChanged(){}
+    int stateChanged(){} // Override to do someting when button changes
 };
 
 
+#define NBUTTONS 5
+#define RESET_BUTTON_IDX 0
+#define KEY_BUTTON_IDX 1
+#define ESTOP_BUTTON_IDX 2
+#define ESTOPEN_BUTTON_IDX 3
+#define POWER_BUTTON_IDX 4
 
 class StateMachine {
 
@@ -237,6 +240,7 @@ class StateMachine {
     int highPowerPin; // Enable 80 Volt power supplies
 
     FadeLed led;
+    FadeLed boardLed;
    
     Button buttons[NBUTTONS];
 
@@ -246,55 +250,56 @@ class StateMachine {
     #define SB_LEN 100
     char str_buf[SB_LEN];
     
-
     bool stateInit = false; // Has the new state been initialized?
 
-    bool checkReset() { return buttons[0].state()==true; }
-    bool checkKeyOn() { return buttons[1].state()==true; }
-    bool checkKeyOff(){ return buttons[1].state()==false; }
-    bool checkEStop() { return buttons[2].state()==false; }
-    bool checkPower() { return buttons[3].state()==true; }
+    // Unless the controller is connected to USB power, the entire controller turns on
+    // and off wth the key switch. 
+    bool checkKeyOn() { return buttons[KEY_BUTTON_IDX].state()==true; }
+    bool checkKeyOff(){ return buttons[KEY_BUTTON_IDX].state()==false; }
+    bool checkReset() { return buttons[RESET_BUTTON_IDX].state()==true; }
+    bool checkEStop() { return buttons[ESTOP_BUTTON_IDX].state()==false &&
+                               buttons[ESTOPEN_BUTTON_IDX].state()!=true; }
+    bool checkEStopEn() { return buttons[ESTOPEN_BUTTON_IDX].state()==true; }
+    bool checkPower() { return buttons[POWER_BUTTON_IDX].state()==true; }
 
-    bool checkAbort(){
-      return checkKeyOff() | checkEStop();
-    }
 
     void initState(){
-      stateLabel = "Init";
+      stateLabel = String("Init");
       
     }
-    
+
     void offState() {
-      stateLabel = "off";
+      stateLabel = String("on");
 
       if (!stateInit){
         turnOffHighPower();
         turnOffLowPower();
         led.setOff();
+        boardLed.setOff();
         stateInit=true;
         
       } else {
-        
-        if (checkKeyOn()){   
-          toOnState();  
-        }
+        if (checkKeyOn()){
+          toOnState();
+        } 
       }
     }
-
+    
     void onState() {
-      stateLabel = "on";
+      stateLabel = String("on");
 
       if (!stateInit){
         turnOffHighPower();
         turnOffLowPower();
         led.setFadeInterval(50);
         led.setFade(10);
+        boardLed.setOn();
         stateInit=true;
         
       } else {
         if (checkKeyOff()){
           toOffState();
-        }  else if (checkReset()){
+        } else if (checkReset()){
           toOnState();
         }  else if (checkPower()){
           toLowPowerOnState();  
@@ -303,7 +308,7 @@ class StateMachine {
     }
     
     void lowPowerOnState() {
-      stateLabel = "lowpower";
+      stateLabel = String("lowpower");
 
       if (!stateInit){
         turnOffHighPower();
@@ -311,8 +316,10 @@ class StateMachine {
         led.setBlink(1000);
         stateInit=true;
       } else {    
-        if(checkKeyOff()){
-          toOffState();  
+        if (checkKeyOff()){
+          toOffState();
+        } else if(checkEStop() ){
+          toErrorState();
         } else if (checkPower()){
           toFullPowerOnState();
         } else if (checkReset()){
@@ -323,7 +330,7 @@ class StateMachine {
       
     }
     void fullPowerOnState()  {
-      stateLabel = "highpower";
+      stateLabel = String("highpower");
       
       if (!stateInit){
         turnOnHighPower();
@@ -331,13 +338,13 @@ class StateMachine {
         led.setOn();
         stateInit=true;
       } else {    
-        if(checkKeyOff()){
-          toOffState();  
-        } else if ( checkPower()){
-          toLowPowerOnState();
+        if (checkKeyOff()){
+          toOffState();
         } else if(checkEStop() ){
           toErrorState();
-        }  else if (checkReset()){
+        }  else if ( checkPower()){
+          toLowPowerOnState();
+        } else if (checkReset()){
           toOnState();
         } 
       }
@@ -345,19 +352,17 @@ class StateMachine {
     }
     
     void errorState(){
-      stateLabel = "error";
+      stateLabel = String("error");
       
       if (!stateInit){
         turnOffHighPower();
-        
+        turnOffLowPower();
         led.setBlink(125);
         stateInit=true;
       } else {    
-        if(checkKeyOff()){
-          toOffState();  
-        } else if ( checkPower()){
-          toLowPowerOnState();
-        }  else if (checkReset()){
+        if (checkKeyOff()){
+          toOffState();
+        } else if (checkReset()){
           toOnState();
         } 
       }
@@ -365,7 +370,7 @@ class StateMachine {
     }
     
     void shuttingDownState(){
-      stateLabel = "shutdown";
+      stateLabel = String("shutdown");
     }
 
     void setRunCurrentState(void (StateMachine::*new_current_state)()){
@@ -394,14 +399,20 @@ class StateMachine {
     
   public:
 
-    StateMachine(int ledPin, int powerPin, int estopPin, int keyPin, int resetPin, 
+
+    StateMachine(int ledPin, int powerPin, int estopEnablePin, int estopPin, int keyPin, int resetPin, 
                  int highPowerPin, int lowPowerPin) : 
-      led(ledPin), 
+      led(ledPin),
+      boardLed(13), 
+      
       buttons( {
-        Button("reset",resetPin, false),
-        Button("key",keyPin, false),
-        Button("estop",estopPin, false),
-        Button("power",powerPin, false)}),
+        // The indexes of these button must match those
+        // of the _BUTTON_INDEX defines
+        Button(F("reset"),resetPin, false),
+        Button(F("key"),keyPin, true),
+        Button(F("estop"),estopPin, false),
+        Button(F("estopEnable"),estopEnablePin, false),
+        Button(F("power"),powerPin, false)}),
         
       highPowerPin(highPowerPin), lowPowerPin(lowPowerPin) {
 
@@ -410,7 +421,7 @@ class StateMachine {
 
       updateButtons();
 
-      lastStateLabel = "__init__";
+      lastStateLabel = F("__init__");
      
     }
 
@@ -419,6 +430,7 @@ class StateMachine {
       setRunCurrentState(&StateMachine::onState);
     }
       
+
     void toOffState() {
       setRunCurrentState(&StateMachine::offState);
     }
@@ -441,14 +453,16 @@ class StateMachine {
     }
 
 
+    // Change the state with a command from the serial port
+    // These changes skip the state machine rules. 
     bool commandStateChange(String ns){
 
-      if (ns == "off") toOffState();
-      else if (ns == "on") toOnState();
-      else if (ns == "lowpower") toLowPowerOnState();
-      else if (ns == "highpower") toFullPowerOnState();
-      else if (ns == "error") toErrorState();
-      else if (ns == "?") ; // Just query the state
+      if (ns == F("on")) toOnState();
+      else if (ns == F("lowpower")) toLowPowerOnState();
+      else if (ns == F("highpower")) toFullPowerOnState();
+      else if (ns == F("error")) toErrorState();
+      else if (ns == F("reset")) toOnState();
+      else if (ns == F("?")) ; // Just query the state
       else return false;
 
       return true;
@@ -456,8 +470,6 @@ class StateMachine {
     }
 
     void buttonsChanged(){
-
-        //printButtons();
 
         // Possibly transition states
         execState();
@@ -491,17 +503,18 @@ class StateMachine {
     }
 
     void printButtons(){
-        //pt("State: "); pt(stateLabel);pt(" Buttons: "); ps;
+       
         for(int i = 0; i < NBUTTONS; i++){
           pt(buttons[i].label());pt(":");ps;pt(buttons[i].state());ps;
         }
+        pnl;
        
     }
 
 
-    char* getStateLabel(){
-      stateLabel.toCharArray(str_buf, SB_LEN);
-      return str_buf;
+    const String& getStateLabel(){
+      return stateLabel; //.toCharArray(str_buf, SB_LEN);
+      //return str_buf;
     }
 
 
@@ -514,11 +527,26 @@ class StateMachine {
     }
 };
 
-StateMachine sm(3,8, 9, 11, 12, 43, 45) ;
+
+StateMachine sm(
+  3, // LED
+  8, // Power Switch
+  9, // EStop Enable
+  41, // EStop
+  54, // Keyed On/Off Switch
+  12, // Reset Switch
+  43, // High Power enable
+  45  // Low Power Enable
+  ) ;
 
 #define COMMAND_BUF_LENGTH 40
 String command; // char command[COMMAND_BUF_LENGTH];
 String commandBuffers[] = {String(), String()};
+
+void printCommand(char *prefix, String str){
+  Serial.print(prefix); Serial.println(str);
+  Serial2.print(prefix); Serial2.println(str);
+}
 
 void setup() {
   
@@ -531,16 +559,8 @@ void setup() {
   Serial.begin(9600);
   Serial2.begin(9600);
   
-  Serial2.println(">init");
-  Serial.println(">init");
-  
+  printCommand("<","init");
 }
-
-void printCommand(char *prefix, String str){
-  Serial.print(prefix); Serial.println(str);
-  Serial2.print(prefix); Serial2.println(str);
-}
-
 
 // Read a command from a serial port and stuff it into 
 // the command string when done. 
@@ -553,11 +573,11 @@ void buildCommand(HardwareSerial& serial, String& str){
 
     if (c == '\n' || c == '\r' ||str.length() == COMMAND_BUF_LENGTH) {
       command = str;
-      
+      command.trim();
       str = "";
     } else {
       str += c;
-      Serial.println(str);
+      
     }
   }
 }
@@ -567,29 +587,36 @@ void serialEvent() {
 }
 
 void serialEvent2() {
-  buildCommand(Serial2, commandBuffers[1]);
+  //buildCommand(Serial2, commandBuffers[1]);
 }
 
 void loop() {
 
-
-  sm.update(); // Update leds for fading and blinking
-
+  
   // If we got a command, display it, on both serial connections 
   if (command.length() > 0){
     if(sm.commandStateChange(command)){ // True if the command is accepted
       printCommand(">", command);
     } else {
       // Bad command
-        printCommand("-", command);
+      printCommand("-", command);
     }
 
     // Print changes in state to both serials. 
-    if (sm.stateChanged() || command == "?"){
+    if (command == "?"){
       printCommand("<", sm.getStateLabel());
+      sm.printButtons();
+      
     }
-  
+
     command = ""; // Clear the command 
+  }
+
+  sm.update(); // Update leds for fading and blinking
+
+  // Print changes in state to both serials. 
+  if (sm.stateChanged()){
+      printCommand("<", sm.getStateLabel());
   }
 
 

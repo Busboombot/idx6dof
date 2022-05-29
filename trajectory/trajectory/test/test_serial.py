@@ -15,10 +15,11 @@ if (False):
     baudrate = 3000000
 else:
     # Builtin USB
-    packet_port = '/dev/cu.usbmodem64213901'
+    packet_port = '/dev/tty.usbmodem6421381'
     #packet_port = '/dev/cu.usbmodem64213801'
     baudrate = 3000000 #20_000_000
 
+logging.basicConfig(level=logging.DEBUG)
 
 class TestComplex(unittest.TestCase):
 
@@ -62,17 +63,33 @@ class TestComplex(unittest.TestCase):
         rt.start()
 
         h1 = CommandHeader(seq=1, code=CommandHeader.CC_ECHO)
-        h1.payload = ('1234567890' * 30)[:1]
+        h1.payload = ('1234567890' * 30)[:10]
 
         t_s = time()
         for i in range(10):
             h1.seq = i
             rt.send(h1)
 
+
         r = (time() - t_s) / 10
         print("Time=", r)
 
+    def test_info(self):
+
+        def cb(p, m):
+            print(m)
+
+        logging.basicConfig(level=logging.DEBUG)
+
+        p = SyncProto(packet_port, baudrate)
+
+        p.info()
+
+        p.read_all(timeout=.2)  # Clear old messages.
+
     def test_sync_proto_config(self):
+
+        # Causes board to crash
 
         def cb(p, m):
             print(m)
@@ -105,10 +122,10 @@ class TestComplex(unittest.TestCase):
 
     def test_sync_proto(self):
 
-        import saleae, time
-        s = saleae.Saleae()
-        s.capture_start()
-        time.sleep(.5)
+        #import saleae, time
+        #s = saleae.Saleae()
+        #s.capture_start()
+        #time.sleep(.5)
 
         def cb(p, m):
             print(m)
@@ -145,12 +162,12 @@ class TestComplex(unittest.TestCase):
         sleep(.1);
         s.capture_stop()
 
-    def test_r_move(self):
+    def test_simple_r_move(self):
 
-        import saleae, time
-        s = saleae.Saleae()
-        s.capture_start()
-        time.sleep(.5)
+        #import saleae, time
+        #s = saleae.Saleae()
+        #s.capture_start()
+        #time.sleep(.5)
 
         def cb(p,m):
             print(m)
@@ -159,14 +176,74 @@ class TestComplex(unittest.TestCase):
 
         p = SyncProto(packet_port, baudrate)
 
+        p.info()
+        print('--------------------')
+
         p.config(axes=[AxisConfig(0, 2, 3, 4, 10e3, 3e5)])
 
+        p.info()
+        print('--------------------')
+
         p.rmove((5000,))
-        p.rmove((10000,))
-        p.rmove((20000,))
-        p.rmove((40000,))
-        p.rmove((80000,))
-        p.rmove((16000,))
+
+        p.read_empty(cb);
+
+        p.info()
+
+    def test_r_move_a1(self):
+
+        #import saleae, time
+        #s = saleae.Saleae()
+        #s.capture_start()
+        #time.sleep(.5)
+
+        def cb(p,m):
+            print(m)
+
+        logging.basicConfig(level=logging.DEBUG)
+
+        p = SyncProto(packet_port, baudrate)
+
+        mx = (800,4000)
+
+        axes = [AxisConfig(0, 2,3,4, *mx),
+                AxisConfig(1, 5,6,7, *mx),
+                AxisConfig(1, 8,9,10, *mx)]
+        p.config(4, False, False, axes=axes);
+
+        p.rmove((   5000,   0,  1000))
+        p.rmove((   -5000,  0,  -1000))
+        p.rmove((   1000,   0,  5000))
+        p.rmove((   -1000,  0,  -5000))
+
+        p.read_empty(cb);
+
+        p.info()
+
+    def test_r_move_a2(self):
+
+        #import saleae, time
+        #s = saleae.Saleae()
+        #s.capture_start()
+        #time.sleep(.5)
+
+        def cb(p,m):
+            print(m)
+
+        logging.basicConfig(level=logging.DEBUG)
+
+        p = SyncProto(packet_port, baudrate)
+
+        mx = (1000,4000)
+
+        axes = [AxisConfig(0, 5, 2, 4, *mx),
+                AxisConfig(1, 6, 7, 4, *mx)
+                ]
+
+        p.rmove((5000,0))
+        p.rmove((0,5000))
+        p.rmove((-5000, 0))
+        p.rmove((0, -5000))
 
         p.read_empty(cb);
 
@@ -228,14 +305,12 @@ class TestComplex(unittest.TestCase):
         p.info()
 
 
-
-
     def test_stepped_moves(self):
 
-        import saleae, time
-        s = saleae.Saleae()
-        s.capture_start()
-        time.sleep(.5)
+        #import saleae, time
+        #s = saleae.Saleae()
+        #s.capture_start()
+        #time.sleep(.5)
 
         def cb(p, m):
             print(m, p.queue_length,  p.queue_time)

@@ -19,5 +19,6 @@ void ser_printf(const char* fmt, ...){
     vsprintf(printf_buffer, fmt,args);
     va_end(args);
     debug_serial.println(printf_buffer);
+    debug_serial.flush();
 }
 
