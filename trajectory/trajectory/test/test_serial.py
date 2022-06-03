@@ -12,14 +12,35 @@ from random import randint
 if (False):
     # FTDI serial
     packet_port = '/dev/cu.usbserial-AO0099HV'
-    baudrate = 3000000
+    baudrate = 115200
 else:
     # Builtin USB
     packet_port = '/dev/tty.usbmodem6421381'
     #packet_port = '/dev/cu.usbmodem64213801'
-    baudrate = 3000000 #20_000_000
+    baudrate = 115200 #20_000_000
 
 logging.basicConfig(level=logging.DEBUG)
+
+usteps = 8
+mx = (1200*usteps,100_000*usteps) # Max Velocity , Max Acceleration
+x_1sec = int(mx[0]) # Number of steps for 1 second
+
+# Axis configurations for the robot
+# Tuples are: step pin, dir pin, enable pin, max_v, max_a
+_axes = {
+    'x': (18,19,20, *mx),   # X
+    'y': (21,21,23, *mx),   # Y
+    'z': (5,6,7, *mx),      # Z
+    'a': (2,3,4, *mx),      # A
+    'b': (8,9,10, *mx),     # B
+    'c': (15,16,17, *mx)    # C
+}
+
+axes1 = [AxisConfig(0,*_axes['a']) ]
+axes2 = [AxisConfig(0,*_axes['a']),AxisConfig(1,*_axes['z']) ]
+axes3 = [AxisConfig(0,*_axes['a']),AxisConfig(1,*_axes['z']),AxisConfig(2,*_axes['b']) ]
+axes6 = [AxisConfig(i,*e) for i, e in enumerate(_axes.values()) ]
+
 
 class TestComplex(unittest.TestCase):
 
@@ -83,7 +104,17 @@ class TestComplex(unittest.TestCase):
 
         p = SyncProto(packet_port, baudrate)
 
-        p.info()
+        p.config(4, False, False, axes=axes2);
+        #p.info()
+
+        p.run()
+        sleep(.5);
+
+        #p.info()
+
+        p.stop()
+
+        #p.info()
 
         p.read_all(timeout=.2)  # Clear old messages.
 
@@ -102,19 +133,7 @@ class TestComplex(unittest.TestCase):
 
         p.read_all(timeout=.2) # Clear old messages.
 
-        mx = (12e3, 3000e3)
-
-        axes = [AxisConfig(0, 5, 2, 4, *mx),  # Y Axis
-                AxisConfig(1, 6, 7, 4, *mx),  # Z Axis
-                AxisConfig(2, 8, 9, 10, *mx),  # B Axis
-                AxisConfig(3, 11, 12, 13, *mx),
-                AxisConfig(4, 11, 12, 13, *mx),
-                AxisConfig(5, 11, 12, 13, *mx)
-                ]
-
-        #axes = [AxisConfig(0, 2, 3, 4, 10e3, 3e5), AxisConfig(1, 5, 6, 7, 10e3, 3e5)]
-
-        p.config(axes=axes)
+        p.config(axes=axes6)
 
         p.info()
 
@@ -179,7 +198,7 @@ class TestComplex(unittest.TestCase):
         p.info()
         print('--------------------')
 
-        p.config(axes=[AxisConfig(0, 2, 3, 4, 10e3, 3e5)])
+        p.config(axes=axes1)
 
         p.info()
         print('--------------------')
@@ -197,24 +216,19 @@ class TestComplex(unittest.TestCase):
         #s.capture_start()
         #time.sleep(.5)
 
-        def cb(p,m):
+        def cb(p,m): # Callback for messages from the sg
             print(m)
 
         logging.basicConfig(level=logging.DEBUG)
 
         p = SyncProto(packet_port, baudrate)
 
-        mx = (800,4000)
+        p.config(4, False, False, axes=axes1);
 
-        axes = [AxisConfig(0, 2,3,4, *mx),
-                AxisConfig(1, 5,6,7, *mx),
-                AxisConfig(1, 8,9,10, *mx)]
-        p.config(4, False, False, axes=axes);
-
-        p.rmove((   5000,   0,  1000))
-        p.rmove((   -5000,  0,  -1000))
-        p.rmove((   1000,   0,  5000))
-        p.rmove((   -1000,  0,  -5000))
+        p.rmove((   30000,))
+        p.amove((  0,))
+        p.amove((30000,))
+        p.amove((-30000,))
 
         p.read_empty(cb);
 
@@ -234,27 +248,61 @@ class TestComplex(unittest.TestCase):
 
         p = SyncProto(packet_port, baudrate)
 
-        mx = (1000,4000)
+        p.config(4, False, False, axes=axes2);
+        p.run()
 
-        axes = [AxisConfig(0, 5, 2, 4, *mx),
-                AxisConfig(1, 6, 7, 4, *mx)
-                ]
+        s = x_1sec/2
 
-        p.rmove((5000,0))
-        p.rmove((0,5000))
-        p.rmove((-5000, 0))
-        p.rmove((0, -5000))
+        for i in range(3):
+
+            p.rmove((s, -s/2))
+            p.rmove((-s, s/2))
+            p.rmove((s/3, -s))
+            p.rmove((-s/3, s))
+            p.info()
+            p.read_empty(cb);
+
+        p.stop();
+        p.info()
+
+    def test_r_move_a3(self):
+
+        #import saleae, time
+        #s = saleae.Saleae()
+        #s.capture_start()
+        #time.sleep(.5)
+
+        def cb(p,m):
+            print(m)
+
+        logging.basicConfig(level=logging.DEBUG)
+
+        p = SyncProto(packet_port, baudrate)
+
+        mx = (800,4000)
+
+        axes = [AxisConfig(0, 2,3,4, *mx),
+                AxisConfig(1, 5,6,7, *mx),
+                AxisConfig(1, 8,9,10, *mx)]
+
+        p.config(4, False, False, axes=axes);
+
+        p.rmove((   5000,   0,  1000))
+        p.rmove((   -5000,  0,  -1000))
+        p.rmove((   1000,   0,  5000))
+        p.rmove((   -1000,  0,  -5000))
 
         p.read_empty(cb);
 
         p.info()
 
+
     def test_a_move(self):
 
-        import saleae, time
-        s = saleae.Saleae()
-        s.capture_start()
-        time.sleep(.5)
+        #import saleae, time
+        #s = saleae.Saleae()
+        #s.capture_start()
+        #time.sleep(.5)
 
         def cb(p,m):
             print(m,p.current_state.positions)
@@ -263,14 +311,21 @@ class TestComplex(unittest.TestCase):
 
         p = SyncProto(packet_port, baudrate)
 
-        p.config(axes=[AxisConfig(0, 2, 3, 4, 50e3, 3e5)])
+        mx = (20000, 500000)  # For Stepper Trainer
+        #p.config(axes=[AxisConfig(0, 2, 3, 4, *mx)])
+        p.config(axes=[AxisConfig(0, 5, 6, 7, *mx)])
 
-        p.amove((500,))
-        p.amove((1000,))
-        p.amove((2000,))
-        p.amove((4000,))
-        p.amove((8000,))
-        p.amove((16000,))
+        for i in range(10):
+            p.rmove((10000,))
+            p.rmove((-10000,))
+
+        if False:
+            p.amove((500,))
+            p.amove((1000,))
+            p.amove((-2000,))
+            p.amove((4000,))
+            p.amove((-8000,))
+            p.amove((16000,))
 
         p.read_empty(cb);
 
@@ -278,10 +333,10 @@ class TestComplex(unittest.TestCase):
 
     def test_jog_move(self):
 
-        import saleae, time
-        s = saleae.Saleae()
-        s.capture_start()
-        time.sleep(.5)
+        #import saleae, time
+        #s = saleae.Saleae()
+        #s.capture_start()
+        #time.sleep(.5)
 
         def cb(p,m):
             print(m,p.current_state.positions)
@@ -290,15 +345,21 @@ class TestComplex(unittest.TestCase):
 
         p = SyncProto(packet_port, baudrate)
 
-        p.config(axes=[AxisConfig(0, 2, 3, 4, 50e3, 3e5)])
+        usteps=32
+
+        mx = (2000, 5000) # For Stepper Trainer
+
+        p.config(axes=[AxisConfig(0, 2, 3, 4, *mx)])
 
         p.amove((0,))
+        p.jog(.1, (200,))
+        p.jog(.1, (200,))
         p.jog(.1,(500,))
         p.jog(.1,(1000,))
         p.jog(.1,(2000,))
         p.jog(.1,(4000,))
-        p.jog(.1,(8000,))
-        p.jog(.1,(16000,))
+        p.jog(.1,(-8000,))
+
 
         p.read_empty(cb);
 
@@ -369,87 +430,6 @@ class TestComplex(unittest.TestCase):
 
         p.info()
 
-    def test_config(self):
-        logging.basicConfig(level=logging.ERROR)
-
-        #import saleae, time
-        #s = saleae.Saleae()
-        #s.capture_start()
-        #time.sleep(.5)
-
-        rt = ThreadedProto(packet_port, baudrate);
-        rt.start()
-
-        rt.send(CommandHeader(seq=1, code=CommandHeader.CC_INFO))
-
-        sleep(.5)
-
-        m = ConfigCommand(4, True, True, [
-            AxisConfig(0, 2, 3, 4),
-            AxisConfig(0, 5, 6, 7)  # ,
-            # AxisConfig(0, 8, 9, 10)
-        ])
-
-        rt.send(m)
-        rt.send(CommandHeader(seq=1, code=CommandHeader.CC_INFO))
-
-        sleep(.5)
-
-        rt.send(CommandHeader(seq=1, code=CommandHeader.CC_RUN))
-        rt.send(CommandHeader(seq=1, code=CommandHeader.CC_INFO))
-
-        rt.wait_recieve()
-
-        def send_seg_list(sl):
-
-            sl.update()
-            sl.validate()
-
-            def r(v):
-                return int(round(v))
-
-            for e in sl.sub_segments:
-                moves = [AxisSegment(i, r(axis.x), r(axis.v_i), r(axis.v_f)) for i, axis in enumerate(e)]
-                rt.move(moves)
-
-        sl = SegmentList([Joint(80000, 300_000, 300_000), Joint(80000, 300_000, 300_000)])
-        for i in range(2):
-            sl.add_distance_segment([80_000, 10_000])
-
-        send_seg_list(sl)
-
-        rt.wait_recieve()
-
-        rt.send(CommandHeader(seq=1, code=CommandHeader.CC_RUN))
-
-        rt.wait_queue_time(1.5)
-
-        for m in rt.yield_recieve():
-
-            print('XXX', rt.last_done, (rt.current_state or object).__dict__, m)
-
-            if rt.is_empty():
-                break
-
-        rt.wait_empty()
-
-    def test_tones(self):
-
-        logging.basicConfig(level=logging.DEBUG)
-
-        rt = ThreadedProto(packet_port, baudrate);
-        rt.start()
-
-        rt.config(4, True, True, [AxisConfig(0, 2, 3, 4)])
-
-        rt.send(CommandHeader(seq=1, code=CommandHeader.CC_INFO))
-
-        rt.move([AxisSegment(0,50_000, 0, 10_000 )])
-        rt.move([AxisSegment(0, 50_000, 10_000, 0)])
-
-        rt.resume()
-
-        rt.wait_empty()
 
 
 

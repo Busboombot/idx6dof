@@ -82,6 +82,8 @@ void Loop::setup(){
     EEPROM.get(EEPROM_OFFSET+sizeof(config)+(sizeof(AxisConfig)*i), axes_config[i]);
     setAxisConfig(&axes_config[i], false);
   }
+
+  stop();
   
 }
 
@@ -118,6 +120,10 @@ void Loop::runSerial(){
 */
 void Loop::feedSteppers(){
 
+  if (!enabled){
+    return;
+  }
+
   if (finished_phase){
     stop();
     finishedPhase();
@@ -125,10 +131,12 @@ void Loop::feedSteppers(){
   }
 
   if (finished_phase == false and !running and planner.getQueueSize() > 0){
-    if(nextPhase())
+    if(nextPhase()){
       start();
+    }
   }
 }
+
 
 void Loop::finishedPhase(){
 
@@ -143,6 +151,7 @@ void Loop::finishedPhase(){
 
   if(planner.isEmpty()){
     sdp.sendEmpty(planner.getCurrentPhase().seq, current_state);
+    //disable();
   }  
 }
 
@@ -151,7 +160,6 @@ bool Loop::nextPhase(){
   if(isEmpty()){
     return false;
   }
-
 
   const PhaseJoints&  pj = planner.getNextPhase();
 
@@ -174,17 +182,32 @@ bool Loop::nextPhase(){
 // Start the timers, if there are segments available. 
 void Loop::start(){ 
     running = true;
-    enable();
+    setDirection();
     setTimer.begin( stepISR, config.interrupt_delay);
+    
 }
 
 void Loop::stop(){ 
-  running = false; 
+  running = false;
   setTimer.end();
-  disable();
+}
+
+void Loop::setDirection(){
+ 
+  switch (config.n_axes){
+      //case 8: steppers[7]->enable(state[7].getDirection());
+      //case 7: steppers[6]->enable(state[6].getDirection());
+      case 6: steppers[5]->setDirection(state[5].getDirection());
+      case 5: steppers[4]->setDirection(state[4].getDirection()); 
+      case 4: steppers[3]->setDirection(state[3].getDirection()); 
+      case 3: steppers[2]->setDirection(state[2].getDirection()); 
+      case 2: steppers[1]->setDirection(state[1].getDirection());
+      case 1: steppers[0]->setDirection(state[0].getDirection()); 
+  }
 }
 
 void Loop::enable(){
+  enabled = true;
   switch (config.n_axes){
       //case 8: steppers[7]->enable(state[7].getDirection());
       //case 7: steppers[6]->enable(state[6].getDirection());
@@ -198,6 +221,7 @@ void Loop::enable(){
 }
 
 void Loop::disable(){
+  enabled = false;
   switch (config.n_axes){
       //case 8: steppers[7]->disable();
       //case 7: steppers[6]->disable();
@@ -281,6 +305,7 @@ void Loop::processMove(const uint8_t* buffer_, size_t size){
 
     for (int axis = 0; axis < getConfig().n_axes; axis++){
       move.x[axis] = m->x[axis];
+      // FIXME! This position update will only work for relative moves
       current_state.planner_positions[axis] += m->x[axis];
     }
     
@@ -293,15 +318,16 @@ void Loop::processMove(const uint8_t* buffer_, size_t size){
 void Loop::printInfo(){
 
   sdp.printf("===========\n"
-            "Queue Size : %d\n"
-            "Queue Time : %d\n"
-            "Running    : %d\n"
-            "N Axes     : %d\n"
-            "Joints     : %d\n"
-            "Intr Delay : %d\n"
-            "Debug print: %d\n"
-            "Debug tick : %d\n",
-           planner.getQueueSize(), planner.getQueueTime(), running, 
+            "Queue Size : %d\r\n"
+            "Queue Time : %d\r\n"
+            "Running    : %d\r\n"
+            "Enabled    : %d\r\n"
+            "N Axes     : %d\r\n"
+            "Joints     : %d\r\n"
+            "Intr Delay : %d\r\n"
+            "Debug print: %d\r\n"
+            "Debug tick : %d\r\n",
+           planner.getQueueSize(), planner.getQueueTime(), running, enabled,
            config.n_axes,planner.getJoints().size(), config.interrupt_delay, 
            config.debug_print, config.debug_tick) ;
   
@@ -313,13 +339,13 @@ void Loop::printInfo(){
 
     StepInterface &stepper = getStepper(j.n);
 
-    sdp.printf("-- Axis %d \n"
-            "Step Pin   : %d\n"
-            "Dir Pin    : %d\n"
-            "Enable Pin : %d\n"
-            "A Max      : %d\n"
-            "V Max      : %d\n"
-            "Position   : %d\n",
+    sdp.printf("-- Axis %d \r\n"
+            "Step Pin   : %d\r\n"
+            "Dir Pin    : %d\r\n"
+            "Enable Pin : %d\r\n"
+            "A Max      : %d\r\n"
+            "V Max      : %d\r\n"
+            "Position   : %d\r\n",
             j.n, stepper.stepPin, stepper.directionPin, stepper.enablePin, 
             static_cast<int>(j.a_max), static_cast<int>(j.v_max),
             stepper.getPosition()); 

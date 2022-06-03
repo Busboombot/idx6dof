@@ -19,18 +19,18 @@ enum class CommandCode : uint8_t {
   NACK =    2,
   RUN =     3,
   STOP =    4,
-  RESET =   5,  // Payload is a debug message; the next packet is text
+  RESET =   5,  // 
   MESSAGE = 6,  // Payload is a message; the next packet is text
   ERROR =   7,  // Some error
   ECHO  =   8,  // Echo the incomming header
   NOOP  =   9,  // Does nothing, but get ACKED
   CONFIG =  10, // Reset the configuration
   AXES =    11, // COnfigure an axis
-  INFO   =  12,
+  INFO   =  12, // Return info messages
   EMPTY  =  13, // Queue is empty, nothing to do. 
   POSITIONS=19,  // Position report. 
   
-  DONE =    20,  // A Movemenbt comment is finished
+  DONE =    20,  // A Movement command is finished
   RMOVE =   21,  // A relative movement segment, with just the relative distance.   
   AMOVE =   22,  // An absolute movement
   JMOVE =   23   // A Jog movement. 

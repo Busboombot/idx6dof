@@ -69,30 +69,23 @@ void MessageProcessor::processPacket(const uint8_t* buffer_, size_t size){
       loop.processMove(buffer_, size);
 
     } else if(ph->code == CommandCode::RUN){
-      loop.start();
+      loop.enable();
 
     } else if (ph->code == CommandCode::STOP){
-      loop.stop();
+      loop.disable();
 
     } else if (ph->code == CommandCode::RESET) {
       loop.reset();
 
     } else if(ph->code == CommandCode::CONFIG) {
-      ser_printf("CONFIG");
       loop.setConfig( (Config*) (buffer_+sizeof(PacketHeader)));
-      sendEmptyAck(ph->seq);
-      return;
 
     } else if(ph->code == CommandCode::AXES) {
-      ser_printf("CONFIG AXIS");
       loop.setAxisConfig( (AxisConfig*) (buffer_+sizeof(PacketHeader)));
-      sendEmptyAck(ph->seq);
-      return;
+
 
     } else if(ph->code == CommandCode::INFO) {
-      ser_printf("INFO");
       loop.printInfo();
-      
     }
   
     sendAck(ph->seq);

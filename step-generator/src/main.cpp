@@ -28,7 +28,7 @@ void setup(){
   Serial.begin(baud); 
   Serial1.begin(115200);
   delay(200);
-  Serial1.printf("Starting %d baud\n", baud);
+  Serial1.printf("Starting %d baud\r\n", baud);
 
   mainLoop.setup();
 }

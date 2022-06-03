@@ -43,8 +43,8 @@ protected:
     friend class StepperState;
     friend class Loop;
 
-    uint8_t enable_active = 1;
-    uint8_t enable_inactive = 0;
+    uint8_t enable_active = 0;
+    uint8_t enable_inactive = 1;
 
 public:
     
@@ -52,7 +52,7 @@ public:
      uint8_t enablePin): axis_n(axis_n), stepPin(stepPin), directionPin(directionPin), enablePin(enablePin) {
         pinMode(stepPin, OUTPUT);
         pinMode(directionPin, OUTPUT);
-        pinMode(enablePin, INPUT_DISABLE); // RESET signal doesn't work
+        pinMode(enablePin, OUTPUT); // RESET signal doesn't work
     }
  
     
@@ -75,14 +75,14 @@ public:
     }
 
     inline void enable(){
+       
         digitalWriteFast(enablePin, enable_active);  // Usually active low 
     }
     
     inline void enable(Direction dir){
-        if(dir != STOP){
-            digitalWriteFast(enablePin, enable_active);  // Usually active low 
-        }
+        
         setDirection(dir);
+        enable();
     }
     
     inline void disable(){
@@ -91,7 +91,6 @@ public:
     }
     
     inline void setDirection(Direction dir){
-        
         if (dir == CW){
             fastSet(directionPin);
             direction = CW;
@@ -160,6 +159,7 @@ public:
     
         if(v1 + v0 != 0 and abs(x) != 0){
             stepsLeft = abs(x);
+            // This is the Dave Austin algorithm, via the AccelStepper arduino library. 
             t_s =  fabs(2.0 * ((float)x)) / ( ((float)v1) + ((float)v0 ) );
             v_i = (float)v0;
             a = ((float)v1-(float)v0) / t_s;

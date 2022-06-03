@@ -41,6 +41,12 @@ public:
 
     void start();
 
+    void enable();
+
+    void setDirection();
+
+    void disable();
+
     inline Config& getConfig(){ return config;}
 
     inline StepInterface& getStepper(uint8_t n){ return *steppers[n]; }
@@ -74,6 +80,8 @@ private:
     IntervalTimer clearTimer;
 
     bool running = false;
+    bool enabled = false;
+    bool inPhase = false;
 
     Planner planner;
  
@@ -97,9 +105,6 @@ private:
 
     void finishedPhase();
 
-    void enable();
-
-    void disable();
 
 
 };

@@ -356,15 +356,19 @@ class SyncProto(object):
         self.empty = False;
 
     def amove(self, x: List[int]):
+        """Absolute position move"""
         self._move(CommandHeader.CC_AMOVE, x, t=0)
 
     def rmove(self, x: List[int]):
+        "Relative position move"
         self._move(CommandHeader.CC_RMOVE, x, t=0)
 
     def jog(self, t:float, x: List[int]):
+        """Jog move. A jog move replaces the last move on the (step generator side)
+        planner, then becomes a regular relative move. """
         self._move(CommandHeader.CC_JMOVE, x, t=t)
 
-    def resume(self):
+    def run(self):
         self.send_command(CommandHeader.CC_RUN)
 
     def stop(self):
