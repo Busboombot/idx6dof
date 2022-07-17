@@ -5,7 +5,7 @@ from typing import List
 
 from cobs import cobs
 
-from .crc8 import crc8
+from trajectory.crc8 import crc8
 
 TIMEBASE=1e6
 
@@ -231,15 +231,18 @@ class ConfigCommand(object):
     msg_fmt = ('<' +
                'B' + # n_axes
                'B' + # interrupt_delay
+               'B' + # enable_active
                'B' + # debug_print
                'B'   # debug_tick
                )
 
     size = struct.calcsize(msg_fmt)
 
-    def __init__(self, n_axes: int, itr_delay: int, debug_print: bool=False, debug_tick: bool=False):
+    def __init__(self, n_axes: int, itr_delay: int, enable_active: bool=True,
+                 debug_print: bool=False, debug_tick: bool=False):
         self.n_axes = n_axes
         self.itr_delay = itr_delay
+        self.enable_active = enable_active
         self.debug_print = debug_print
         self.debug_tick = debug_tick
 
@@ -256,7 +259,7 @@ class ConfigCommand(object):
     def encode(self):
 
         self.header.payload = struct.pack(self.msg_fmt, self.n_axes, self.itr_delay,
-                                          self.debug_print, self.debug_tick)
+                                          self.enable_active, self.debug_print, self.debug_tick)
 
         return self.header.encode()
 

@@ -34,6 +34,7 @@ inline void Loop::isr(){
     if(finished_phase)
       return;
 
+    // When we set a step, also set the ISR to clear it later. 
     clearTimer.begin(clearISR,1.55);  // 1.55 is the minimum on teensy4 == 36 cycles. 
 
     switch (config.n_axes) {
@@ -73,6 +74,8 @@ inline void Loop::clearIsr(){
 
 void Loop::setup(){
 
+  stop();
+  disable();
 
   return;
   EEPROM.get(EEPROM_OFFSET, config);
@@ -83,7 +86,7 @@ void Loop::setup(){
     setAxisConfig(&axes_config[i], false);
   }
 
-  stop();
+
   
 }
 
@@ -222,6 +225,7 @@ void Loop::enable(){
 
 void Loop::disable(){
   enabled = false;
+
   switch (config.n_axes){
       //case 8: steppers[7]->disable();
       //case 7: steppers[6]->disable();
@@ -243,6 +247,7 @@ void Loop::setConfig(Config* config_, bool eeprom_write){
   
   config.interrupt_delay = config_->interrupt_delay;
   config.n_axes = config_->n_axes;
+  config.enable_active = config_->enable_active;
   config.debug_print = config_->debug_print;
   config.debug_tick = config_->debug_tick;
   
@@ -272,6 +277,8 @@ void Loop::setAxisConfig(AxisConfig* as, bool eeprom_write){
     steppers[as->axis] = new StepInterface(as->axis, as->step_pin, as->direction_pin, as->enable_pin);
 
     steppers[as->axis]->setPosition(pos);
+
+    steppers[as->axis]->SetEnableActive(config.enable_active);
 
     Joint joint(as->axis,static_cast< float >(as->v_max), static_cast< float >(as->a_max));
     planner.setJoint(joint);
@@ -325,11 +332,12 @@ void Loop::printInfo(){
             "N Axes     : %d\r\n"
             "Joints     : %d\r\n"
             "Intr Delay : %d\r\n"
+            "En Active  : %d\r\n"
             "Debug print: %d\r\n"
             "Debug tick : %d\r\n",
            planner.getQueueSize(), planner.getQueueTime(), running, enabled,
            config.n_axes,planner.getJoints().size(), config.interrupt_delay, 
-           config.debug_print, config.debug_tick) ;
+           config.enable_active, config.debug_print, config.debug_tick) ;
   
   for(const Joint &j : planner.getJoints() ){
 

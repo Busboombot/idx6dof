@@ -47,7 +47,7 @@ void Planner::push(const Move& move){ // push to tail
         // For jogs, we remove the last item, if there are more than two, 
         // and replace it. 
         
-        if (  getQueueSize() >= 6 ){
+        if (  getQueueSize() >= 6 ){ // segments get broken in to three parts
             Segment* last = segments.back();
             segments.pop_back();
             queue_size -= 3;
@@ -57,12 +57,14 @@ void Planner::push(const Move& move){ // push to tail
             for(unsigned int i=0; i < joints.size(); i++){
                 current_position[i] -= last_moves[i];
             }
+            
+            delete last;
         } 
         // Now it is just a regular relative move_. 
         move_.move_type = Move::MoveType::relative;
     }
     
-    // Transform the move from realtive to absolute. The result is that
+    // Transform the move from relative to absolute. The result is that
     // the new position is the value of the move x position
     if(move_.move_type == Move::MoveType::absolute){
         for(unsigned int i=0; i < joints.size(); i++){

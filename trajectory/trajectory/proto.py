@@ -334,12 +334,12 @@ class SyncProto(object):
         self.send(CommandHeader(seq=self.seq, code=c))
 
     def config(self, itr_delay: int = 4,
-               debug_print: bool = False, debug_tick: bool = False,
+               enable_active=True, debug_print: bool = False, debug_tick: bool = False,
                axes: List[AxisConfig] = []):
 
         # Send the top level config, to set the number of
         # axes
-        self.send(ConfigCommand(len(axes), itr_delay, debug_print, debug_tick))
+        self.send(ConfigCommand(len(axes), itr_delay, enable_active, debug_print, debug_tick))
 
         # Then send the config for each axis.
         for ac in axes:

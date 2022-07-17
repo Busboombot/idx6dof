@@ -5,7 +5,7 @@ import struct
 def sign(a): return (a>0) - (a<0)
 
 def mkmap(r1,r2, d1,d2):
-    """Map from one inter range to another"""
+    """Map from one interval range to another"""
     r = r2-r1
     d = d2-d1
 

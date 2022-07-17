@@ -4,10 +4,10 @@ import unittest
 from time import sleep, time
 
 import serial
+from test import make_axes
 
 from trajectory.messages import *
 from trajectory.proto import ThreadedProto, SyncProto
-from trajectory.segments import Joint, SegmentList
 from random import randint
 if (False):
     # FTDI serial
@@ -21,28 +21,31 @@ else:
 
 logging.basicConfig(level=logging.DEBUG)
 
-usteps = 8
-mx = (1200*usteps,100_000*usteps) # Max Velocity , Max Acceleration
-x_1sec = int(mx[0]) # Number of steps for 1 second
 
 # Axis configurations for the robot
 # Tuples are: step pin, dir pin, enable pin, max_v, max_a
-_axes = {
-    'x': (18,19,20, *mx),   # X
-    'y': (21,21,23, *mx),   # Y
-    'z': (5,6,7, *mx),      # Z
-    'a': (2,3,4, *mx),      # A
-    'b': (8,9,10, *mx),     # B
-    'c': (15,16,17, *mx)    # C
-}
-
-axes1 = [AxisConfig(0,*_axes['a']) ]
-axes2 = [AxisConfig(0,*_axes['a']),AxisConfig(1,*_axes['z']) ]
-axes3 = [AxisConfig(0,*_axes['a']),AxisConfig(1,*_axes['z']),AxisConfig(2,*_axes['b']) ]
-axes6 = [AxisConfig(i,*e) for i, e in enumerate(_axes.values()) ]
 
 
 class TestComplex(unittest.TestCase):
+    # Determines wether the steppers are enables with an output value of high or low
+    # Different for different stepper drivers
+    ENABLE_OUTPUT = False
+
+    def setUp(self) -> None:
+        p = SyncProto(packet_port, baudrate)
+
+        d = make_axes(500, 1_000, usteps=1, steps_per_rotation=48) # Just for stopping all axes
+
+        p.config(4, self.ENABLE_OUTPUT, False, False, axes=d['axes6']);
+        p.stop()
+
+    def tearDown(self) -> None:
+        p = SyncProto(packet_port, baudrate)
+
+        d = make_axes(500, 1_000, usteps=1, steps_per_rotation=48) # Just for stopping all axes
+
+        p.config(4, self.ENABLE_OUTPUT, False, False, axes=d['axes6']);
+        p.stop()
 
     def rand_header(self):
 
@@ -103,18 +106,21 @@ class TestComplex(unittest.TestCase):
         logging.basicConfig(level=logging.DEBUG)
 
         p = SyncProto(packet_port, baudrate)
+        d = make_axes(300, .1, usteps=32, steps_per_rotation=48)
 
-        p.config(4, False, False, axes=axes2);
-        #p.info()
+        p.config(4, ENABLE_OUTPUT, False, False, axes=d['axes6']);
+        p.info()
+
+        return
 
         p.run()
         sleep(.5);
 
-        #p.info()
+        p.info()
 
         p.stop()
 
-        #p.info()
+        p.info()
 
         p.read_all(timeout=.2)  # Clear old messages.
 
@@ -181,33 +187,29 @@ class TestComplex(unittest.TestCase):
         sleep(.1);
         s.capture_stop()
 
-    def test_simple_r_move(self):
-
-        #import saleae, time
-        #s = saleae.Saleae()
-        #s.capture_start()
-        #time.sleep(.5)
-
+    def test_simple_r_1_move(self):
+        """A simple move with 1 axis"""
         def cb(p,m):
-            print(m)
+            print(m, p.queue_time)
 
         logging.basicConfig(level=logging.DEBUG)
 
+        d = make_axes(100, 1, usteps=16, steps_per_rotation=200)
+
         p = SyncProto(packet_port, baudrate)
+        p.config(4, self.ENABLE_OUTPUT, False, False, axes=d['axes1']);
 
-        p.info()
-        print('--------------------')
+        p.run()
+        s = d['x_1sec']
+        dur = 2
+        print(1*s)
 
-        p.config(axes=axes1)
-
-        p.info()
-        print('--------------------')
-
-        p.rmove((5000,))
-
-        p.read_empty(cb);
-
-        p.info()
+        for i in range(5):
+            p.rmove((dur/2*s,))
+            p.rmove((-dur * s,))
+            p.rmove((dur / 2 * s,))
+            p.read_empty(cb);
+            p.info()
 
     def test_r_move_a1(self):
 
@@ -223,35 +225,30 @@ class TestComplex(unittest.TestCase):
 
         p = SyncProto(packet_port, baudrate)
 
-        p.config(4, False, False, axes=axes1);
+        p.config(4, True, False, False, axes=axes1);
 
-        p.rmove((   30000,))
-        p.amove((  0,))
-        p.amove((30000,))
-        p.amove((-30000,))
+        s = 5*x_1sec
+        for i in range(1):
+            p.rmove((s,))
+            p.rmove((-s,))
 
+        p.run()
         p.read_empty(cb);
 
         p.info()
 
-    def test_r_move_a2(self):
-
-        #import saleae, time
-        #s = saleae.Saleae()
-        #s.capture_start()
-        #time.sleep(.5)
+    def test_r_move_a2_reversing(self):
 
         def cb(p,m):
-            print(m)
+            print(m, p.queue_time)
 
         logging.basicConfig(level=logging.DEBUG)
 
         p = SyncProto(packet_port, baudrate)
 
-        p.config(4, False, False, axes=axes2);
-        p.run()
+        p.config(4, True, False, False, axes=axes2);
 
-        s = x_1sec/2
+        s = x_1sec
 
         for i in range(3):
 
@@ -259,18 +256,18 @@ class TestComplex(unittest.TestCase):
             p.rmove((-s, s/2))
             p.rmove((s/3, -s))
             p.rmove((-s/3, s))
-            p.info()
-            p.read_empty(cb);
 
-        p.stop();
+        p.info()
+        t1 = time()
+        p.run()
+        p.read_empty(cb)
+        td = time() - t1
+        print("Time: ", td)
+        p.stop()
         p.info()
 
     def test_r_move_a3(self):
 
-        #import saleae, time
-        #s = saleae.Saleae()
-        #s.capture_start()
-        #time.sleep(.5)
 
         def cb(p,m):
             print(m)
@@ -279,23 +276,19 @@ class TestComplex(unittest.TestCase):
 
         p = SyncProto(packet_port, baudrate)
 
-        mx = (800,4000)
+        d = make_axes(300, .1, usteps=32, steps_per_rotation=48)
+        s = d['x_1sec']
 
-        axes = [AxisConfig(0, 2,3,4, *mx),
-                AxisConfig(1, 5,6,7, *mx),
-                AxisConfig(1, 8,9,10, *mx)]
+        p.config(4, True, False, False, axes=d['axes3']);
 
-        p.config(4, False, False, axes=axes);
-
-        p.rmove((   5000,   0,  1000))
-        p.rmove((   -5000,  0,  -1000))
-        p.rmove((   1000,   0,  5000))
-        p.rmove((   -1000,  0,  -5000))
-
+        p.rmove((   1*s,   .5*s,   1*s))
+        p.rmove((   -1*s,  .25*s, -1*s))
+        p.rmove((   1*s,   1*s,   1*s))
+        p.rmove((   -1*s,  .5*s,  -1*s))
+        p.run()
         p.read_empty(cb);
 
         p.info()
-
 
     def test_a_move(self):
 
@@ -319,14 +312,7 @@ class TestComplex(unittest.TestCase):
             p.rmove((10000,))
             p.rmove((-10000,))
 
-        if False:
-            p.amove((500,))
-            p.amove((1000,))
-            p.amove((-2000,))
-            p.amove((4000,))
-            p.amove((-8000,))
-            p.amove((16000,))
-
+        p.run()
         p.read_empty(cb);
 
         p.info()

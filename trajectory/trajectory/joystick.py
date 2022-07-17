@@ -35,7 +35,7 @@ class PygameJoystick(object):
             # print [j.get_button(z) for z in range(j.get_numbuttons())]
 
         if t:
-            self.interval = int(t * 500)
+            self.interval = int(t*1000)
         else:
             self.interval = 500
 
@@ -51,9 +51,16 @@ class PygameJoystick(object):
         seq = 0;
         lasttime = time()
 
+        m = lambda v: int(v * 1000)  # freq_map[button]
+
+        def p(axis):
+            v = j.get_axis(axis)
+            v = v if abs(v) > .03 else 0
+            return int(copysign(m(abs(v)), v))
+
         while True:
 
-            event = pygame.event.wait()
+            event = pygame.event.wait(self.interval)
 
             if (event.type == KEYDOWN and event.key == K_ESCAPE):
                 pygame.quit()
@@ -63,38 +70,38 @@ class PygameJoystick(object):
                 pygame.quit()
                 return
 
-            elif event.type in joy_events:
+            else:
 
-                i = event.joy
-                j = self.joysticks[i]
+                if event and event.type in joy_events:
+                    i = event.joy
+                    j = self.joysticks[i]
 
-                button = max([0] + [z + 1 for z in range(j.get_numbuttons()) if j.get_button(z) and z in range(4)])
+                    button = [z + 1 for z in range(j.get_numbuttons()) if j.get_button(z) and z in range(4)]
 
-                axis_mode = max(
-                    [0] + [z for z in range(j.get_numbuttons()) if j.get_button(z) and z in range(4, 8)])
+                    axis_mode = [z for z in range(j.get_numbuttons()) if j.get_button(z) and z in range(4, 8)]
 
-                m = freq_map[button]
 
-                def p(axis):
-                    v = j.get_axis(axis)
-                    v = v if abs(v) > .03 else 0
-                    return copysign(m(abs(v)), v)
+                    hats = [j.get_hat(i) for i in range(j.get_numhats())]
 
-                hats = [j.get_hat(i) for i in range(j.get_numhats())]
+                    axes = [p(axis) for axis in range(j.get_numaxes())] + \
+                           [copysign(m(abs(h)), h) for h in hats[0]]
 
-                axes = [p(axis) for axis in range(j.get_numaxes())] + \
-                       [copysign(m(abs(h * .5)), h) for h in hats[0]]
+                    axes = [0 if abs(a) < 30 else a for a in axes]
+
+                else:
+                    button = self.last.button
+                    axis_mode = self.last.axis_mode
+                    axes = self.last.axes
 
                 now = time()
                 delta = now - lasttime
-
-                axes = [ 0 if abs(a) < 30 else a for a in axes]
 
                 self.last = JoyValues( seq, now, delta, button, axis_mode, axes )
                 lasttime = now
                 seq += 1
 
                 yield self.last
+
 
     def __del__(self):
         import pygame

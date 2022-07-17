@@ -75,7 +75,6 @@ public:
     }
 
     inline void enable(){
-       
         digitalWriteFast(enablePin, enable_active);  // Usually active low 
     }
     
@@ -85,6 +84,13 @@ public:
         enable();
     }
     
+   // Set whether enable is active high or low
+   inline void SetEnableActive(uint8_t enable_active){
+        this->enable_active = enable_active;
+        this->enable_inactive = (!(bool)enable_active);
+   }
+    
+
     inline void disable(){
         digitalWriteFast(enablePin, enable_inactive);// Active low
         setDirection(STOP);

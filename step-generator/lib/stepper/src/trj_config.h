@@ -22,6 +22,7 @@ struct Config {
 
     uint8_t n_axes = 0;         // Number of axes
     uint8_t interrupt_delay=5;    // How often interrupt is called, in microseconds
+    bool  enable_active = true; // Logic value for enable to be active. 
     bool debug_print = true;
     bool debug_tick = true;
 };
