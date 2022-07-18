@@ -1,4 +1,5 @@
 import logging
+import queue
 import unittest
 # from trajectory.proto import PacketProto
 from time import sleep, time
@@ -26,7 +27,7 @@ logging.basicConfig(level=logging.DEBUG)
 # Tuples are: step pin, dir pin, enable pin, max_v, max_a
 
 
-class TestComplex(unittest.TestCase):
+class TestSerial(unittest.TestCase):
     # Determines wether the steppers are enables with an output value of high or low
     # Different for different stepper drivers
     ENABLE_OUTPUT = False
@@ -194,7 +195,7 @@ class TestComplex(unittest.TestCase):
 
         logging.basicConfig(level=logging.DEBUG)
 
-        d = make_axes(100, 1, usteps=16, steps_per_rotation=200)
+        d = make_axes(1000, 1, usteps=16, steps_per_rotation=200)
 
         p = SyncProto(packet_port, baudrate)
         p.config(4, self.ENABLE_OUTPUT, False, False, axes=d['axes1']);
@@ -204,7 +205,7 @@ class TestComplex(unittest.TestCase):
         dur = 2
         print(1*s)
 
-        for i in range(5):
+        for i in range(2):
             p.rmove((dur/2*s,))
             p.rmove((-dur * s,))
             p.rmove((dur / 2 * s,))
@@ -319,37 +320,58 @@ class TestComplex(unittest.TestCase):
 
     def test_jog_move(self):
 
-        #import saleae, time
-        #s = saleae.Saleae()
-        #s.capture_start()
-        #time.sleep(.5)
+        from encoder import EncoderReader
 
         def cb(p,m):
+
             print(m,p.current_state.positions)
+
+        d = make_axes(1500, 1, usteps=16, steps_per_rotation=200)
+
+        p = SyncProto(packet_port, baudrate)
+        p.config(4, self.ENABLE_OUTPUT, False, False, axes=d['axes1']);
 
         logging.basicConfig(level=logging.DEBUG)
 
-        p = SyncProto(packet_port, baudrate)
+        er = EncoderReader('/dev/cu.usbmodem6387471')
+        er.start()
 
-        usteps=32
+        #print(m[0].direction, m[0].limit, m[0].position)
 
-        mx = (2000, 5000) # For Stepper Trainer
+        p.rmove((1000,))
 
-        p.config(axes=[AxisConfig(0, 2, 3, 4, *mx)])
-
-        p.amove((0,))
-        p.jog(.1, (200,))
-        p.jog(.1, (200,))
-        p.jog(.1,(500,))
-        p.jog(.1,(1000,))
-        p.jog(.1,(2000,))
-        p.jog(.1,(4000,))
-        p.jog(.1,(-8000,))
+        p.run()
 
 
-        p.read_empty(cb);
+        def jog_to_next_limit(x):
+            er.clear_queue()
+            for i in range(1000):
+                p.jog(.1, (x,))
 
-        p.info()
+                try:
+                    m = er.get(True, timeout=0.1)
+                    return m
+
+                except queue.Empty:
+                    pass
+
+            er.clear_queue()
+
+        jog_to_next_limit(500)
+        jog_to_next_limit(-100)
+        jog_to_next_limit(50)
+        jog_to_next_limit(-10)
+
+        if False:
+            p.jog(.1, (200,))
+            p.jog(.1, (200,))
+            p.jog(.1,(500,))
+            p.jog(.1,(1000,))
+            p.jog(.1,(2000,))
+            p.jog(.1,(4000,))
+            p.jog(.1,(-8000,))
+
+        er.stop()
 
 
     def test_stepped_moves(self):
