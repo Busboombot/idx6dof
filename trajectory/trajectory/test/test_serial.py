@@ -318,7 +318,40 @@ class TestSerial(unittest.TestCase):
 
         p.info()
 
-    def test_jog_move(self):
+    def test_encoder(self):
+
+        from encoder import EncoderReader
+
+        def cb(p,m):
+            print(m,p.current_state.positions)
+
+        d = make_axes(500, 1, usteps=16, steps_per_rotation=200)
+
+        p = SyncProto(packet_port, baudrate)
+        p.config(4, self.ENABLE_OUTPUT, False, False, axes=d['axes1']);
+
+        logging.basicConfig(level=logging.DEBUG)
+
+        er = EncoderReader('/dev/cu.usbmodem6387471')
+        er.start()
+
+        mspr = d['mspr'] # Pulses per rotation
+        divs = 4
+        x = mspr/divs
+
+        for i in range(divs*2):
+            p.amove((x,))
+            p.amove((x*2,))
+            p.amove((x*3,))
+
+        p.run()
+        p.info()
+
+        p.read_empty(cb);
+
+        p.info()
+
+    def test_find_limit(self):
 
         from encoder import EncoderReader
 
