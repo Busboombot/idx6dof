@@ -1,0 +1,51 @@
+diff --git a/step-generator/lib/planner/trj_planner.h b/step-generator/lib/planner/trj_planner.h
+index 8ebbb9b..67033fb 100644
+--- a/step-generator/lib/planner/trj_planner.h
++++ b/step-generator/lib/planner/trj_planner.h
+@@ -113,6 +113,8 @@ public:
+ 
+     const std::vector<Joint> &getJoints(){ return joints;}
+ 
++    const std::deque<Segment*> & getSegments() { return segments; }
++
+     // Add a move, processing it into a Segment
+     void push(const Move& move);
+ 
+diff --git a/step-generator/lib/planner/trj_segment.cpp b/step-generator/lib/planner/trj_segment.cpp
+index 12e1268..9ad92b2 100644
+--- a/step-generator/lib/planner/trj_segment.cpp
++++ b/step-generator/lib/planner/trj_segment.cpp
+@@ -148,7 +148,7 @@ MoveArray Segment::getMoves(){
+ 
+ ostream& operator<<( ostream &output, const Segment &s ) { 
+ 
+-    output <<  std::setprecision(3) << "["  
++    output <<  std::setprecision(3) << s.n << " ["  
+             << setw(5) << s.t_a << " " 
+             << setw(5) << s.t_c << " " 
+             << setw(5) << s.t_d << "]";
+diff --git a/step-generator/lib/stepper/src/trj_loop.cpp b/step-generator/lib/stepper/src/trj_loop.cpp
+index b17ac3f..e1f05c0 100644
+--- a/step-generator/lib/stepper/src/trj_loop.cpp
++++ b/step-generator/lib/stepper/src/trj_loop.cpp
+@@ -2,6 +2,7 @@
+ #include <EEPROM.h>
+ #include <functional>
+ #include <limits.h>
++#include <sstream>
+ #include <avr/io.h>
+ #include <avr/interrupt.h>
+ 
+@@ -358,6 +359,12 @@ void Loop::printInfo(){
+             static_cast<int>(j.a_max), static_cast<int>(j.v_max),
+             stepper.getPosition()); 
+ 
++  }
+ 
++  for(const Segment *s : planner.getSegments()){
++      stringstream ss;
++      ss << *s << '\0';
++      sdp.sendMessage(ss.str().c_str());
+   }
++
+ }
