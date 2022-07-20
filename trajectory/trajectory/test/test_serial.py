@@ -293,30 +293,22 @@ class TestSerial(unittest.TestCase):
 
     def test_a_move(self):
 
-        #import saleae, time
-        #s = saleae.Saleae()
-        #s.capture_start()
-        #time.sleep(.5)
+        def cb(p, m):
+            print(m, p.current_state.positions)
 
-        def cb(p,m):
-            print(m,p.current_state.positions)
-
-        logging.basicConfig(level=logging.DEBUG)
+        d = make_axes(700, .05, usteps=16, steps_per_rotation=200)
 
         p = SyncProto(packet_port, baudrate)
+        p.config(4, self.ENABLE_OUTPUT, False, False, axes=d['axes1']);
 
-        mx = (20000, 500000)  # For Stepper Trainer
-        #p.config(axes=[AxisConfig(0, 2, 3, 4, *mx)])
-        p.config(axes=[AxisConfig(0, 5, 6, 7, *mx)])
+        for i in range(5):
+            p.rmove((5000,))
 
-        for i in range(10):
-            p.rmove((10000,))
-            p.rmove((-10000,))
-
+        p.info()
         p.run()
         p.read_empty(cb);
 
-        p.info()
+
 
     def test_encoder(self):
 
