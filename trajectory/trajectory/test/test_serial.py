@@ -358,15 +358,14 @@ class TestSerial(unittest.TestCase):
 
         logging.basicConfig(level=logging.DEBUG)
 
-        er = EncoderReader('/dev/cu.usbmodem6387471')
+        er = EncoderReader('/dev/cu.usbmodem6387471', yield_timeout=30)
         er.start()
 
-        #print(m[0].direction, m[0].limit, m[0].position)
-
-        p.rmove((1000,))
+        p.rmove((1600,))
 
         p.run()
 
+        p.read_empty(cb);
 
         def jog_to_next_limit(x):
             er.clear_queue()
@@ -387,17 +386,70 @@ class TestSerial(unittest.TestCase):
         jog_to_next_limit(50)
         jog_to_next_limit(-10)
 
-        if False:
-            p.jog(.1, (200,))
-            p.jog(.1, (200,))
-            p.jog(.1,(500,))
-            p.jog(.1,(1000,))
-            p.jog(.1,(2000,))
-            p.jog(.1,(4000,))
-            p.jog(.1,(-8000,))
+        p.rmove((100,))
+        p.rmove((-200,))
+        p.rmove((100,))
+
+        p.read_empty(cb);
+
+        for i in range(5):
+            try:
+                m = er.get(True, timeout=0.5)
+                print(m[0])
+
+            except queue.Empty:
+                pass
+
+        if m:
+            p.amove(m[0].position)
 
         er.stop()
 
+    def test_find_limit_2(self):
+
+        from encoder import EncoderReader
+
+        def cb(p,m):
+
+            print(m,p.current_state.positions)
+
+        d = make_axes(1500, 1, usteps=16, steps_per_rotation=200)
+
+        p = SyncProto(packet_port, baudrate)
+        p.config(4, self.ENABLE_OUTPUT, False, False, axes=d['axes1']);
+
+        logging.basicConfig(level=logging.DEBUG)
+
+        er = EncoderReader('/dev/cu.usbmodem6387471', yield_timeout=30)
+        er.start()
+
+
+        p.run()
+
+        p.read_empty();
+
+        mspr = d['mspr'] # Microsteps per revolution
+
+        p.rmove((mspr/3,))
+
+        for i in range(0, int(mspr/2), int(mspr/8)):
+            p.rmove((i,))
+            p.rmove((-i,))
+
+        p.read_empty(cb);
+
+        for i in range(5):
+            try:
+                m = er.get(True, timeout=0.1)
+                print(m[0])
+
+            except queue.Empty:
+                pass
+
+        if m:
+            p.amove((m[0].position,))
+
+        p.read_empty(cb);
 
     def test_stepped_moves(self):
 
