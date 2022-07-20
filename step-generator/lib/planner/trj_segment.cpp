@@ -148,7 +148,7 @@ MoveArray Segment::getMoves(){
 
 ostream& operator<<( ostream &output, const Segment &s ) { 
 
-    output <<  std::setprecision(3) << "["  
+    output <<  std::setprecision(3) << s.n << " ["  
             << setw(5) << s.t_a << " " 
             << setw(5) << s.t_c << " " 
             << setw(5) << s.t_d << "]";

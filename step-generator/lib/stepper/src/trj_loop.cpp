@@ -2,6 +2,7 @@
 #include <EEPROM.h>
 #include <functional>
 #include <limits.h>
+#include <sstream>
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
@@ -358,6 +359,12 @@ void Loop::printInfo(){
             static_cast<int>(j.a_max), static_cast<int>(j.v_max),
             stepper.getPosition()); 
 
-
   }
+
+  for(const Segment *s : planner.getSegments()){
+      stringstream ss;
+      ss << *s << '\0';
+      sdp.sendMessage(ss.str().c_str());
+  }
+
 }

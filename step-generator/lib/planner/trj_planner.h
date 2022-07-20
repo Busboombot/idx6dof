@@ -113,6 +113,8 @@ public:
 
     const std::vector<Joint> &getJoints(){ return joints;}
 
+    const std::deque<Segment*> & getSegments() { return segments; }
+
     // Add a move, processing it into a Segment
     void push(const Move& move);
 
