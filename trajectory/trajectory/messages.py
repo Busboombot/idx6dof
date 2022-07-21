@@ -2,7 +2,7 @@ from __future__ import print_function
 
 import struct
 from typing import List
-
+from dataclasses import dataclass
 from cobs import cobs
 
 from trajectory.crc8 import crc8
@@ -42,21 +42,53 @@ class CommandHeader(object):
     # enum CommandCode  {
     CC_ACK      = 1
     CC_NACK     = 2
-    CC_RUN      = 3
-    CC_STOP     = 4
-    CC_DEBUG    = 5     # Payload is a debug message; the next packet is text
-    CC_MESSAGE  = 6     # Payload is a message; the next packet is text
-    CC_ERROR    = 7     # Some error
-    CC_ECHO     = 8     # Echo the incomming header
-    CC_NOOP     = 9     # Does nothing, but does get ACKed
-    CC_CONFIG   = 10    # Set configuration
-    CC_AXES     = 11    # Set configuration for an axis
-    CC_INFO     = 12    # Send back info messages about state and condition
-    CC_EMPTY    = 13    # Queue is empty, nothing to do.
-    CC_DONE     = 20    # A Movement command is finished.
-    CC_RMOVE    = 21    # a normal movement segment
-    CC_AMOVE    = 22  # a normal movement segment
-    CC_JMOVE    = 23  # a normal movement segment
+    CC_DONE     = 3    # A Movement command is finished.
+    CC_EMPTY    = 4  # Queue is empty, nothing to do.
+
+    CC_RMOVE    = 11   # a normal movement segment
+    CC_AMOVE    = 12  # a normal movement segment
+    CC_JMOVE    = 13  # a normal movement segment
+
+    CC_RUN      = 21
+    CC_STOP     = 22
+    CC_RESET    = 23
+    CC_ZERO    = 24
+    CC_CONFIG   = 25  # Set configuration
+    CC_AXES     = 26  # Set configuration for an axis
+
+
+    CC_MESSAGE  = 91     # Payload is a message; the next packet is text
+    CC_ERROR    = 92     # Some error
+    CC_ECHO     = 93     # Echo the incomming header
+    CC_DEBUG    = 94  # Echo the incomming header
+    CC_INFO     = 95  # Send back info messages about state and condition
+    CC_NOOP = 99  # Does nothing, but does get ACKed
+
+    cmap = {
+        CC_ACK: "ACK",
+        CC_NACK: "NACK",
+        CC_DONE: "DONE",  # A Movement command is finished
+        CC_EMPTY: "EMPTY",  # Queue is empty, nothing to do.
+
+        CC_RMOVE: "RMOVE",  # A relative movement segment, with just the relative distance.
+        CC_AMOVE: "AMOVE",  # An absolute movement
+        CC_JMOVE: "JMOVE",  # A Jog movement.
+
+        CC_RUN: "RUN",
+        CC_STOP: "STOP",
+        CC_RESET: "RESET",  #
+        CC_ZERO: "ZERO",  # Zero positions
+        CC_CONFIG: "CONFIG",  # Reset the configuration
+        CC_AXES: "AXES",  # Configure an axis
+
+        CC_MESSAGE: "MESSAGE",  # Payload is a message; the next packet is text
+        CC_ERROR: "ERROR",  # Some error
+        CC_ECHO: "ECHO",  # Echo the incomming header
+        CC_DEBUG: "DEBUG",  #
+        CC_INFO: "INFO",  # Return info messages
+
+        CC_NOOP: "NOOP",  # Does nothing, but get ACKED
+    }
 
     def __init__(self, seq, code, crc=0):
 
@@ -137,10 +169,7 @@ class CommandHeader(object):
                 self.seq == other.seq)
 
     def __str__(self):
-        return f"<Header #{self.seq} code={self.code} ({self.crc})> "
-
-
-
+        return f"< #{self.seq} {self.cmap[self.code]} > "
 
 class MoveCommand(object):
 
@@ -231,6 +260,7 @@ class ConfigCommand(object):
     msg_fmt = ('<' +
                'B' + # n_axes
                'B' + # interrupt_delay
+               'B' + # Segment Complete Pin
                'B' + # enable_active
                'B' + # debug_print
                'B'   # debug_tick
@@ -238,13 +268,15 @@ class ConfigCommand(object):
 
     size = struct.calcsize(msg_fmt)
 
-    def __init__(self, n_axes: int, itr_delay: int, enable_active: bool=True,
-                 debug_print: bool=False, debug_tick: bool=False):
+    def __init__(self, n_axes: int, itr_delay: int,segment_complete_pin:int = 12,
+                 enable_active: bool=True, debug_print: bool=False, debug_tick: bool=False):
+
         self.n_axes = n_axes
         self.itr_delay = itr_delay
         self.enable_active = enable_active
         self.debug_print = debug_print
         self.debug_tick = debug_tick
+        self.segment_complete_pin = segment_complete_pin
 
         self.header = CommandHeader(seq=0, code=CommandHeader.CC_CONFIG)
 
@@ -258,7 +290,7 @@ class ConfigCommand(object):
 
     def encode(self):
 
-        self.header.payload = struct.pack(self.msg_fmt, self.n_axes, self.itr_delay,
+        self.header.payload = struct.pack(self.msg_fmt, self.n_axes, self.itr_delay, self.segment_complete_pin,
                                           self.enable_active, self.debug_print, self.debug_tick)
 
         return self.header.encode()
@@ -286,4 +318,56 @@ class CurrentState(object):
 
 
     def __str__(self):
-        return f"[ ql={self.queue_length} qt={self.queue_time} {self.positions} ]"
+        return f"[ l{self.queue_length} t{self.queue_time} {self.positions} ]"
+
+
+encoder_msg_fmt = (
+        '6c' +  # limit_states[6]
+        'c' +  # code
+        'c' +  # pad
+        '6i'  # Positions[6]
+)
+
+ls_map = {
+    2: 'HL',
+    1: 'LH',
+    3: 'HH',
+    0: 'LL'
+}
+
+code_map = {
+    1: 'L', # Triggered on limit
+    2: 'Z', # Triggered from zero command
+    3: 'S', # Triggered from end of segment
+}
+
+
+@dataclass
+class EncoderMessage:
+    """Class for keeping track of an item in inventory."""
+    limit: int
+    code: int
+    direction: int
+    position: float
+
+    def __repr__(self):
+        return (f'E[{code_map[self.code]} {ls_map[self.limit]} {"<" if self.direction else ">"} {self.position}]')
+
+    @classmethod
+    def decode(cls, data):
+
+        encoders = []
+
+        try:
+            v = struct.unpack(encoder_msg_fmt, cobs.decode(data))
+
+            for l, c, p in zip(v[:6], v[6], v[-6:]):
+                ls = int.from_bytes(l, "big")
+
+                encoders.append(EncoderMessage(ls & 3, c, (ls & 4) >> 2, p))
+
+        except Exception as e:
+            raise
+
+        return encoders
+

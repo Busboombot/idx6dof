@@ -8,7 +8,9 @@ import serial
 from test import make_axes
 
 from trajectory.messages import *
-from trajectory.proto import ThreadedProto, SyncProto
+from trajectory.proto import SyncProto
+
+
 from random import randint
 if (False):
     # FTDI serial
@@ -17,6 +19,7 @@ if (False):
 else:
     # Builtin USB
     packet_port = '/dev/tty.usbmodem6421381'
+    encoder_port = '/dev/cu.usbmodem6387471'
     #packet_port = '/dev/cu.usbmodem64213801'
     baudrate = 115200 #20_000_000
 
@@ -33,20 +36,22 @@ class TestSerial(unittest.TestCase):
     ENABLE_OUTPUT = False
 
     def setUp(self) -> None:
-        p = SyncProto(packet_port, baudrate)
+        p = SyncProto(packet_port, encoder_port, baudrate)
 
         d = make_axes(500, 1_000, usteps=1, steps_per_rotation=48) # Just for stopping all axes
 
         p.config(4, self.ENABLE_OUTPUT, False, False, axes=d['axes6']);
         p.stop()
+        p.close()
 
     def tearDown(self) -> None:
-        p = SyncProto(packet_port, baudrate)
+        p = SyncProto(packet_port, encoder_port, baudrate)
 
         d = make_axes(500, 1_000, usteps=1, steps_per_rotation=48) # Just for stopping all axes
 
         p.config(4, self.ENABLE_OUTPUT, False, False, axes=d['axes6']);
         p.stop()
+        p.close()
 
     def rand_header(self):
 
@@ -301,21 +306,55 @@ class TestSerial(unittest.TestCase):
         p = SyncProto(packet_port, baudrate)
         p.config(4, self.ENABLE_OUTPUT, False, False, axes=d['axes1']);
 
+        er = EncoderReader('/dev/cu.usbmodem6387471')
+        er.start()
+        er.zero()
+
         for i in range(5):
+            p.rmove((5000,))
+
+        p.reset()
+        #p.info()
+        p.run()
+        l = p.read_empty()
+        print('\n'.join(repr(e[0]) for e in er.read_empty()))
+
+    def test_a_move_new_selectors(self):
+
+
+        d = make_axes(800, .1, usteps=16, steps_per_rotation=200)
+
+        p = SyncProto(packet_port, encoder_port)
+        p.reset()
+        p.zero()
+        p.config(4, self.ENABLE_OUTPUT, False, False, axes=d['axes1']);
+
+        for i in range(10):
             p.rmove((5000,))
 
         p.info()
         p.run()
-        p.read_empty(cb);
 
+        import pandas as pd
+        rows = []
+
+        for m in p:
+            if isinstance(m, list) and m[0].code == 3:
+                print(p.current_state, m[0].position*1.333)
+                rows.append({'step':p.current_state.positions[0], 'enc':m[0].position})
+
+        df = pd.DataFrame(rows)
+
+        df = df.diff()
+        df = df[df.step > 0]
+        s = df.step / df.enc
+        print(s.iloc[3:].mean())
 
 
     def test_encoder(self):
 
-        from encoder import EncoderReader
 
-        def cb(p,m):
-            print(m,p.current_state.positions)
+
 
         d = make_axes(500, 1, usteps=16, steps_per_rotation=200)
 
@@ -324,7 +363,7 @@ class TestSerial(unittest.TestCase):
 
         logging.basicConfig(level=logging.DEBUG)
 
-        er = EncoderReader('/dev/cu.usbmodem6387471')
+        er = EncoderReader()
         er.start()
 
         mspr = d['mspr'] # Pulses per rotation

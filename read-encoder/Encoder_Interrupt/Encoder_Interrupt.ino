@@ -7,6 +7,7 @@ IntervalTimer clearLedTimer; // Timer for clearing the LED
 
 #define LIMIT_PIN 4
 #define LIMIT_INTR_PIN 33
+#define SEG_TRIGGER_PIN 32
 
 PacketSerial ps;
 
@@ -21,9 +22,16 @@ int auto_print = false; // Automatically print limits and positions.
 typedef void (*voidfp)();
 void limit_change(int n);
 
+enum message_code  : uint8_t{
+  limit_code = 1,
+  zero_code = 2,
+  seg_code = 3
+};
+
 typedef struct {
   uint8_t limit_states[6] = {0};
-  uint16_t pad1;
+  enum message_code code;
+  uint8_t pad1;
   int32_t positions[6] = {0};
 } EncoderReport;
 
@@ -35,6 +43,8 @@ enum limit {
   HH = 0b11,
   LL = 0b00
 };
+
+
 
 class LimitEncoder {
 
@@ -135,7 +145,7 @@ class LimitEncoder {
 
     void limitUnChanged(){
 
-      if(last_limit){
+      if(getLimit()){
         limit_state = HH;
       } else {
         limit_state = LL;
@@ -170,14 +180,15 @@ LimitEncoder encoders[] = {
 int n_encoders = sizeof encoders / sizeof encoders[0];
 
 
-void updateReport(){
-    for ( int i = 0; i < n_encoders; i++) {
-      LimitEncoder& enc = encoders[i];
-
-      encoder_report.limit_states[i] = enc.getLimitState() | (enc.getDirection() <<2 ) ;
-      encoder_report.positions[i] = enc.getPosition();
-    
+void updateReport(enum message_code code){
+  for ( int i = 0; i < n_encoders; i++) {
+    LimitEncoder& enc = encoders[i];
+    encoder_report.code = code;
+    encoder_report.limit_states[i] = enc.getLimitState() | (enc.getDirection() <<2 ) ;
+    encoder_report.positions[i] = enc.getPosition();
   }
+
+  ps.send((const uint8_t*)&encoder_report, sizeof(encoder_report));
 }
 
 void limit_change(int n) {
@@ -226,6 +237,15 @@ voidfp limit_changes[] = {
 int n_limit_changes = sizeof limit_changes / sizeof limit_changes[0];
 
 
+void segmentCompleted(){
+  for ( int i = 0; i < n_encoders; i++) {
+    encoders[i].limitUnChanged();
+  }
+  updateReport(seg_code);
+
+
+}
+
 void setup() {
 
   ps.begin(115200);
@@ -235,6 +255,9 @@ void setup() {
 
   pinMode(LIMIT_INTR_PIN, OUTPUT);
   pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(SEG_TRIGGER_PIN, INPUT);
+  
+  attachInterrupt(SEG_TRIGGER_PIN, segmentCompleted, RISING);
 
   // Attach the interrupts for limit changes
   for ( int i = 0; i < n_encoders; i++) {
@@ -250,30 +273,12 @@ void loop() {
     char cmd = Serial.read();
 
     switch (cmd) {
-      case 'c': // Clear
+      case 'z': // Clear
         for ( int i = 0; i < n_encoders; i++) {
           encoders[i].setPosition(0);
+          encoders[i].limitUnChanged();
         }
-        break;
-      case 'r': // Report all positions
-        Serial.print('r');
-        for ( int i = 0; i < n_encoders; i++) {
-          Serial.write(encoders[i].getPosition());
-        }
-        Serial.print('\n');
-        break;
-      case 'l': // Report last limit positions
-        Serial.print('l');
-        for ( int i = 0; i < n_encoders; i++) {
-          Serial.write(encoders[i].getLastLimitPos());
-        }
-        Serial.print('\n');
-        break;
-      case 'a': // Auto print limits and positions.
-        auto_print = true;
-        break;
-      case 'A': // Turn off auto print
-        auto_print = false;
+        updateReport(zero_code);
         break;
     }
   }
@@ -285,11 +290,10 @@ void loop() {
 
   if (limits_changed != 0) {
     limits_changed = 0;
-    updateReport();
-    ps.send((const uint8_t*)&encoder_report, sizeof(encoder_report));
-
-
+    updateReport(limit_code);
     
+
+
   }
 
 }

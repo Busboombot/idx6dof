@@ -12,7 +12,8 @@ import serial
 from test import make_axes
 
 from trajectory.messages import *
-from trajectory.proto import ThreadedProto, SyncProto
+from trajectory.proto import SyncProto
+from old import ThreadedProto
 from random import randint
 if (False):
     # FTDI serial
