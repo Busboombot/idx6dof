@@ -1,4 +1,5 @@
 pyserial
+
 threaded
 ansicolors
 numpy
