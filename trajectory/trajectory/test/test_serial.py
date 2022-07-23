@@ -409,7 +409,7 @@ class TestSerial(unittest.TestCase):
         print(p.axis_state)
 
 
-    def home(self):
+    def home_seek(self):
 
         p = self.init(1000)
 
@@ -429,7 +429,7 @@ class TestSerial(unittest.TestCase):
         p.runout()
 
     def test_home(self):
-        self.home();
+        self.home_seek();
 
     def home_poll(self, p):
 

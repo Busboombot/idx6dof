@@ -311,13 +311,17 @@ class SyncProto(object):
         self.send_command(CommandCode.INFO)
 
     def reset(self):
+        self.runout()
         self._reset_states()
         self.send_command(CommandCode.RESET)
+        self.runout()
 
     def zero(self):
+        self.runout()
         self._reset_states()
         self.enc_ser.write(b'z')
         self.send_command(CommandCode.ZERO)
+        self.runout()
 
     def pollEncoders(self):
         self.enc_ser.write(b'p')
