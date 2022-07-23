@@ -4,6 +4,7 @@ import struct
 from typing import List
 from dataclasses import dataclass
 from cobs import cobs
+from enum import IntEnum
 
 from trajectory.crc8 import crc8
 
@@ -22,6 +23,39 @@ class CRCError(ProtoError):
 class BadMoveCodeError(ProtoError):
     pass
 
+class CommandCode(IntEnum):
+    ACK      = 1
+    NACK     = 2
+    DONE     = 3    # A Movement command is finished.
+    EMPTY    = 4  # Queue is empty, nothing to do.
+
+    RMOVE    = 11   # a normal movement segment
+    AMOVE    = 12  # a normal movement segment
+    JMOVE    = 13  # a normal movement segment
+
+    RUN      = 21
+    STOP     = 22
+    RESET    = 23
+    ZERO    = 24
+    CONFIG   = 25  # Set configuration
+    AXES     = 26  # Set configuration for an axis
+
+
+    MESSAGE  = 91     # Payload is a message; the next packet is text
+    ERROR    = 92     # Some error
+    ECHO     = 93     # Echo the incomming header
+    DEBUG    = 94  # Echo the incomming header
+    INFO     = 95  # Send back info messages about state and condition
+    NOOP = 99  # Does nothing, but does get ACKed
+
+
+
+    def __repr__(self):
+        return self.name
+
+    def __str__(self):
+        return self.name
+
 class CommandHeader(object):
     # struct Header {
     #   uint16_t seq; // Packet sequence number
@@ -39,61 +73,10 @@ class CommandHeader(object):
 
     size = struct.calcsize(msg_fmt)
 
-    # enum CommandCode  {
-    CC_ACK      = 1
-    CC_NACK     = 2
-    CC_DONE     = 3    # A Movement command is finished.
-    CC_EMPTY    = 4  # Queue is empty, nothing to do.
-
-    CC_RMOVE    = 11   # a normal movement segment
-    CC_AMOVE    = 12  # a normal movement segment
-    CC_JMOVE    = 13  # a normal movement segment
-
-    CC_RUN      = 21
-    CC_STOP     = 22
-    CC_RESET    = 23
-    CC_ZERO    = 24
-    CC_CONFIG   = 25  # Set configuration
-    CC_AXES     = 26  # Set configuration for an axis
-
-
-    CC_MESSAGE  = 91     # Payload is a message; the next packet is text
-    CC_ERROR    = 92     # Some error
-    CC_ECHO     = 93     # Echo the incomming header
-    CC_DEBUG    = 94  # Echo the incomming header
-    CC_INFO     = 95  # Send back info messages about state and condition
-    CC_NOOP = 99  # Does nothing, but does get ACKed
-
-    cmap = {
-        CC_ACK: "ACK",
-        CC_NACK: "NACK",
-        CC_DONE: "DONE",  # A Movement command is finished
-        CC_EMPTY: "EMPTY",  # Queue is empty, nothing to do.
-
-        CC_RMOVE: "RMOVE",  # A relative movement segment, with just the relative distance.
-        CC_AMOVE: "AMOVE",  # An absolute movement
-        CC_JMOVE: "JMOVE",  # A Jog movement.
-
-        CC_RUN: "RUN",
-        CC_STOP: "STOP",
-        CC_RESET: "RESET",  #
-        CC_ZERO: "ZERO",  # Zero positions
-        CC_CONFIG: "CONFIG",  # Reset the configuration
-        CC_AXES: "AXES",  # Configure an axis
-
-        CC_MESSAGE: "MESSAGE",  # Payload is a message; the next packet is text
-        CC_ERROR: "ERROR",  # Some error
-        CC_ECHO: "ECHO",  # Echo the incomming header
-        CC_DEBUG: "DEBUG",  #
-        CC_INFO: "INFO",  # Return info messages
-
-        CC_NOOP: "NOOP",  # Does nothing, but get ACKED
-    }
-
     def __init__(self, seq, code, crc=0):
 
         self.seq = seq  # Gets set when sent
-        self.code = code
+        self.code = CommandCode(code)
         self.crc = crc
 
         self.acked = None  # Set to true after ACK is recieved, or False if Nacked
@@ -102,6 +85,15 @@ class CommandHeader(object):
         self.nack = None  # Nack header
 
         self.payload = None
+
+    @property
+    def is_ack(self):
+        return self.code == CommandCode.ACK
+
+
+    @property
+    def name(self):
+        return self.code.name
 
     @staticmethod
     def unpack(data):
@@ -113,7 +105,7 @@ class CommandHeader(object):
 
     def _pack(self, crc=0):
 
-        msg = [self.seq, self.code, crc]
+        msg = [self.seq, int(self.code), crc]
 
         # Build the packet without the CRC as zero
         try:
@@ -165,11 +157,16 @@ class CommandHeader(object):
     def __eq__(self, other):
         return (
                 self.crc == other.crc and
-                self.code == other.code and
+                self.code == other.limit_code and
                 self.seq == other.seq)
 
+    def sid(self):
+        """string ident"""
+        return str(self)
+
+
     def __str__(self):
-        return f"< #{self.seq} {self.cmap[self.code]} > "
+        return f"<ST #{self.seq} {str(self.code)} > "
 
 class MoveCommand(object):
 
@@ -183,8 +180,8 @@ class MoveCommand(object):
         self.x = [int(e) for e in x] + [0]*(6-len(x))
         self.t = int(round(t * TIMEBASE)) # Convert to integer microseconds
 
-        if code not in (CommandHeader.CC_AMOVE, CommandHeader.CC_RMOVE,
-                        CommandHeader.CC_JMOVE):
+        if code not in (CommandCode.AMOVE, CommandCode.RMOVE,
+                        CommandCode.JMOVE):
             raise BadMoveCodeError("Bad Code {}".format(code))
 
         self.header = CommandHeader(seq=0, code=code)
@@ -213,7 +210,7 @@ class MoveCommand(object):
 
 
     def __repr__(self):
-        return f"<AxisSegment {self.axis_n} {self.steps} >"
+        return f"<AxisSegment {self.x} >"
 
 
 class AxisConfig(object):
@@ -236,7 +233,7 @@ class AxisConfig(object):
         self.v_max = int(v_max)
         self.a_max = int(a_max)
 
-        self.header = CommandHeader(seq=0, code=CommandHeader.CC_AXES)
+        self.header = CommandHeader(seq=0, code=CommandCode.AXES)
 
     @property
     def seq(self):
@@ -278,7 +275,7 @@ class ConfigCommand(object):
         self.debug_tick = debug_tick
         self.segment_complete_pin = segment_complete_pin
 
-        self.header = CommandHeader(seq=0, code=CommandHeader.CC_CONFIG)
+        self.header = CommandHeader(seq=0, code=CommandCode.CONFIG)
 
     @property
     def seq(self):
@@ -320,7 +317,6 @@ class CurrentState(object):
     def __str__(self):
         return f"[ l{self.queue_length} t{self.queue_time} {self.positions} ]"
 
-
 encoder_msg_fmt = (
         '6c' +  # limit_states[6]
         'c' +  # code
@@ -328,30 +324,35 @@ encoder_msg_fmt = (
         '6i'  # Positions[6]
 )
 
-ls_map = {
-    2: 'HL',
-    1: 'LH',
-    3: 'HH',
-    0: 'LL'
-}
+class LimitCode(IntEnum):
+    HL = 0b10
+    LH = 0b01
+    HH = 0b11
+    LL = 0b00
 
-code_map = {
-    1: 'L', # Triggered on limit
-    2: 'Z', # Triggered from zero command
-    3: 'S', # Triggered from end of segment
-}
+class CauseCode(IntEnum):
+    POLL = 4
+    SEGDONE = 3
+    ZEROED = 2
+    LIMIT = 1
 
+@dataclass()
+class EncoderReport:
+    axis_code: int
+    cause: CauseCode
+    encoders:"EncoderState"
 
-@dataclass
-class EncoderMessage:
-    """Class for keeping track of an item in inventory."""
-    limit: int
-    code: int
-    direction: int
-    position: float
+    def __str__(self):
+        s = ' '.join(str(e) for e in self.encoders)
+        return f"<ER {self.cause.name}@{self.axis_code} {s}> "
 
-    def __repr__(self):
-        return (f'E[{code_map[self.code]} {ls_map[self.limit]} {"<" if self.direction else ">"} {self.position}]')
+    @property
+    def is_ack(self):
+        return False
+
+    @property
+    def name(self):
+        return self.cause.name
 
     @classmethod
     def decode(cls, data):
@@ -361,13 +362,40 @@ class EncoderMessage:
         try:
             v = struct.unpack(encoder_msg_fmt, cobs.decode(data))
 
-            for l, c, p in zip(v[:6], v[6], v[-6:]):
-                ls = int.from_bytes(l, "big")
+            cause = CauseCode(int.from_bytes(v[6], 'big'))
+            axis = int.from_bytes(v[7], 'big')
 
-                encoders.append(EncoderMessage(ls & 3, c, (ls & 4) >> 2, p))
+            if axis == 0:
+                axis = None
+            else:
+                axis -= 1
+
+            for limit_states, positions in zip(v[:6], v[-6:]):
+                ls = int.from_bytes(limit_states, "big")
+                direction = (ls & 4) >> 2
+                limit_code = LimitCode(ls & 3)
+
+                encoders.append(EncoderState(limit_code, direction, positions))
+
+            return EncoderReport(axis, cause, encoders)
 
         except Exception as e:
             raise
 
-        return encoders
 
+@dataclass
+class EncoderState:
+    """Class for keeping track of an item in inventory."""
+    limit_code: LimitCode
+    direction: int
+    position: float
+
+    def sid(self):
+        """string ident"""
+        return f"< ## {self.cause.name} {self.limit_code.name}>"
+
+    def __repr__(self):
+        return (f'E[{self.limit_code.name} {"<" if self.direction else ">"}{self.position}]')
+
+    def __str__(self):
+        return (f'{self.limit_code.name}{"<" if self.direction else ">"}{self.position}')

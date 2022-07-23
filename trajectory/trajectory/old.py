@@ -39,9 +39,9 @@ class ThreadedProto(ReaderThread):
 
                 pl = m.payload.decode('ascii')
 
-                if m.code == CommandHeader.CC_DEBUG:
+                if m.limit_code == CommandHeader.CC_DEBUG:
                     logger.debug(pl)
-                elif m.code == CommandHeader.CC_ERROR:
+                elif m.limit_code == CommandHeader.CC_ERROR:
                     logger.error(pl)
                 else:
                     logger.info(pl)
@@ -63,22 +63,22 @@ class ThreadedProto(ReaderThread):
 
         m.recieve_time = time()
 
-        if m.code in (CommandHeader.CC_ACK, CommandHeader.CC_NACK, CommandHeader.CC_ECHO):
+        if m.limit_code in (CommandHeader.CC_ACK, CommandHeader.CC_NACK, CommandHeader.CC_ECHO):
             self.f_queue.append(m)
             return  # These don't go in p_queue
 
-        elif m.code in (CommandHeader.CC_DEBUG, CommandHeader.CC_ERROR, CommandHeader.CC_MESSAGE):
+        elif m.limit_code in (CommandHeader.CC_DEBUG, CommandHeader.CC_ERROR, CommandHeader.CC_MESSAGE):
             if self.message_callback:
                 self.message_callback(self, m)
             else:
                 self.t_queue.append(m)
             return  # These don't go in p_queue
 
-        elif m.code == CommandHeader.CC_DONE:
+        elif m.limit_code == CommandHeader.CC_DONE:
             self.current_state = CurrentState(m.payload)
             self.last_done = m.seq
 
-        elif m.code == CommandHeader.CC_EMPTY:
+        elif m.limit_code == CommandHeader.CC_EMPTY:
             self.empty_event.set();
 
         self.p_queue.put(m)
@@ -92,10 +92,10 @@ class ThreadedProto(ReaderThread):
             try:
                 f = queue.pop()
 
-                if f.code in (CommandHeader.CC_ACK, CommandHeader.CC_ECHO) and f.seq == seq:
+                if f.limit_code in (CommandHeader.CC_ACK, CommandHeader.CC_ECHO) and f.seq == seq:
                     return f
 
-                elif f.code == CommandHeader.CC_NACK and f.seq == seq:
+                elif f.limit_code == CommandHeader.CC_NACK and f.seq == seq:
                     raise Exception('NACK')
 
             except IndexError:

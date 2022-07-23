@@ -1,7 +1,6 @@
 import logging
 import queue
 import unittest
-# from trajectory.proto import PacketProto
 from time import sleep, time
 
 import serial
@@ -12,16 +11,11 @@ from trajectory.proto import SyncProto
 
 
 from random import randint
-if (False):
-    # FTDI serial
-    packet_port = '/dev/cu.usbserial-AO0099HV'
-    baudrate = 115200
-else:
-    # Builtin USB
-    packet_port = '/dev/tty.usbmodem6421381'
-    encoder_port = '/dev/cu.usbmodem6387471'
-    #packet_port = '/dev/cu.usbmodem64213801'
-    baudrate = 115200 #20_000_000
+
+packet_port = '/dev/tty.usbmodem6421381'
+encoder_port = '/dev/cu.usbmodem6387471'
+
+baudrate = 115200 #20_000_000
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -52,6 +46,18 @@ class TestSerial(unittest.TestCase):
         p.config(4, self.ENABLE_OUTPUT, False, False, axes=d['axes6']);
         p.stop()
         p.close()
+
+    def init(self, v=500):
+        d = make_axes(v, .1, usteps=16, steps_per_rotation=200)
+
+        p = SyncProto(packet_port, encoder_port)
+        p.encoder_multipliers[0] = 1 + (1 / 3)
+
+        p.config(4, False, False, False, axes=d['axes1']);
+
+        p.mspr = d['mspr']
+
+        return p
 
     def rand_header(self):
 
@@ -299,260 +305,138 @@ class TestSerial(unittest.TestCase):
     def test_a_move(self):
 
         def cb(p, m):
-            print(m, p.current_state.positions)
+            print(m)
 
-        d = make_axes(700, .05, usteps=16, steps_per_rotation=200)
+        p = self.init(100)
+        r = p.mspr
 
-        p = SyncProto(packet_port, baudrate)
-        p.config(4, self.ENABLE_OUTPUT, False, False, axes=d['axes1']);
-
-        er = EncoderReader('/dev/cu.usbmodem6387471')
-        er.start()
-        er.zero()
-
-        for i in range(5):
-            p.rmove((5000,))
-
-        p.reset()
-        #p.info()
-        p.run()
-        l = p.read_empty()
-        print('\n'.join(repr(e[0]) for e in er.read_empty()))
-
-    def test_a_move_new_selectors(self):
-
-
-        d = make_axes(800, .1, usteps=16, steps_per_rotation=200)
-
-        p = SyncProto(packet_port, encoder_port)
-        p.reset()
         p.zero()
-        p.config(4, self.ENABLE_OUTPUT, False, False, axes=d['axes1']);
+        p.reset()
 
-        for i in range(10):
-            p.rmove((5000,))
+        p.run()
+        p.amove((-r/2,))
+        p.amove((-r/2,))
+        p.amove((0,))
+        p.runout(cb)
+        return
+
+        p.amove((r/2,))
+        p.amove((-r/2,))
+        p.amove((0,))
+        p.runout()
+
+        p.amove((r,))
+        p.amove((0,))
+        p.amove((0,))
 
         p.info()
         p.run()
 
-        import pandas as pd
-        rows = []
+        p.runout()
 
+    def test_simple_r_move(self):
+
+        def cb(p, m):
+            print(p.queue_length, m)
+
+        p = self.init(100)
+
+        p.zero()
+        p.reset()
+
+        p.rmove((636,))
+
+        p.runout(cb)
+
+        sleep(.1)
+        p.update()
         for m in p:
-            if isinstance(m, list) and m[0].code == 3:
-                print(p.current_state, m[0].position*1.333)
-                rows.append({'step':p.current_state.positions[0], 'enc':m[0].position})
+            print('!!!', m)
 
-        df = pd.DataFrame(rows)
+    def test_zero_move(self):
 
-        df = df.diff()
-        df = df[df.step > 0]
-        s = df.step / df.enc
-        print(s.iloc[3:].mean())
+        def cb(p, m):
+            print(m)
 
+        p = self.init(100)
 
-    def test_encoder(self):
+        p.zero()
+        p.reset()
 
-
-
-
-        d = make_axes(500, 1, usteps=16, steps_per_rotation=200)
-
-        p = SyncProto(packet_port, baudrate)
-        p.config(4, self.ENABLE_OUTPUT, False, False, axes=d['axes1']);
-
-        logging.basicConfig(level=logging.DEBUG)
-
-        er = EncoderReader()
-        er.start()
-
-        mspr = d['mspr'] # Pulses per rotation
-        divs = 4
-        x = mspr/divs
-
-        for i in range(divs*2):
-            p.amove((x,))
-            p.amove((x*2,))
-            p.amove((x*3,))
-
+        p.rmove((0,))
+        p.info()
         p.run()
+
+        p.runout(cb)
         p.info()
 
-        p.read_empty(cb);
-
-        p.info()
 
     def test_find_limit(self):
 
-        from encoder import EncoderReader
+        def cb(p, m):
+            print(m)
+        p = self.init(800)
 
-        def cb(p,m):
-
-            print(m,p.current_state.positions)
-
-        d = make_axes(1500, 1, usteps=16, steps_per_rotation=200)
-
-        p = SyncProto(packet_port, baudrate)
-        p.config(4, self.ENABLE_OUTPUT, False, False, axes=d['axes1']);
-
-        logging.basicConfig(level=logging.DEBUG)
-
-        er = EncoderReader('/dev/cu.usbmodem6387471', yield_timeout=30)
-        er.start()
-
-        p.rmove((1600,))
-
+        p.zero()
+        p.reset()
         p.run()
 
-        p.read_empty(cb);
+        for i in range(0,p.mspr, int(p.mspr/8)):
+            p.amove((i,))
+            p.amove((-i,))
+            p.runout()
+            ll = p.axis_state[0].hl_limit
+            if(ll):
+                print("Found", ll)
+                break
 
-        def jog_to_next_limit(x):
-            er.clear_queue()
-            for i in range(1000):
-                p.jog(.1, (x,))
-
-                try:
-                    m = er.get(True, timeout=0.1)
-                    return m
-
-                except queue.Empty:
-                    pass
-
-            er.clear_queue()
-
-        jog_to_next_limit(500)
-        jog_to_next_limit(-100)
-        jog_to_next_limit(50)
-        jog_to_next_limit(-10)
-
-        p.rmove((100,))
-        p.rmove((-200,))
-        p.rmove((100,))
-
-        p.read_empty(cb);
-
-        for i in range(5):
-            try:
-                m = er.get(True, timeout=0.5)
-                print(m[0])
-
-            except queue.Empty:
-                pass
-
-        if m:
-            p.amove(m[0].position)
-
-        er.stop()
-
-    def test_find_limit_2(self):
-
-        from encoder import EncoderReader
-
-        def cb(p,m):
-
-            print(m,p.current_state.positions)
-
-        d = make_axes(1500, 1, usteps=16, steps_per_rotation=200)
-
-        p = SyncProto(packet_port, baudrate)
-        p.config(4, self.ENABLE_OUTPUT, False, False, axes=d['axes1']);
-
-        logging.basicConfig(level=logging.DEBUG)
-
-        er = EncoderReader('/dev/cu.usbmodem6387471', yield_timeout=30)
-        er.start()
+        p.amove((ll + p.mspr/4,))
+        p.runempty(cb)
 
 
+    def test_reset(self):
+
+        def cb(p, m):
+            if isinstance(m,list):
+                print(m[0], p.axis_state[0])
+
+        p = self.init(1000)
+
+        p.zero()
+        p.reset()
+        p.runout()
+
+        print(p.axis_state)
+
+
+    def home(self):
+
+        p = self.init(1000)
+
+        p.zero()
+        p.reset()
         p.run()
 
-        p.read_empty();
+        for i in range(0, p.mspr, int(p.mspr / 16)):
+            p.amove((i,))
+            p.amove((-i,))
+            p.runout()
+            ll = p.axis_state[0].hl_limit
+            if (ll):
+                break
 
-        mspr = d['mspr'] # Microsteps per revolution
+        p.amove((ll + int(p.mspr / 4),))
+        p.runout()
 
-        p.rmove((mspr/3,))
+    def test_home(self):
+        self.home();
 
-        for i in range(0, int(mspr/2), int(mspr/8)):
-            p.rmove((i,))
-            p.rmove((-i,))
+    def test_encoder_poll(self):
 
-        p.read_empty(cb);
+        p = self.init(1000)
 
-        for i in range(5):
-            try:
-                m = er.get(True, timeout=0.1)
-                print(m[0])
+        print(p.pollEncoders().encoders[0])
 
-            except queue.Empty:
-                pass
-
-        if m:
-            p.amove((m[0].position,))
-
-        p.read_empty(cb);
-
-    def test_stepped_moves(self):
-
-        #import saleae, time
-        #s = saleae.Saleae()
-        #s.capture_start()
-        #time.sleep(.5)
-
-        def cb(p, m):
-            print(m, p.queue_length,  p.queue_time)
-
-        logging.basicConfig(level=logging.DEBUG)
-
-        p = SyncProto(packet_port, baudrate)
-        mx = (12e3, 3000e3)
-
-        p.config(itr_delay=10,
-                 axes=[AxisConfig(0, 5, 2, 4, *mx),  # Y Axis
-                       AxisConfig(1, 6, 7, 4, *mx),  # Z Axis
-                       AxisConfig(2, 8, 9, 10, *mx),  # B Axis
-                       AxisConfig(3, 11, 12, 13, *mx)])  # ,
-
-        r = list(range(10,800, 5))
-        t = .05
-        while True:
-            for x in r:
-                p.move([AxisSegment(0, x)], t=t)
-                p.read_to_queue_len(4, cb);
-
-            for x in reversed(r):
-                p.move([AxisSegment(0, x)], t=t)
-                p.read_to_queue_len(4, cb);
-
-        p.info()
-
-    def test_backforth(self):
-
-        import saleae, time
-        s = saleae.Saleae()
-        s.capture_start()
-        time.sleep(.5)
-
-        def cb(p, m):
-            print(m, p.queue_length,  p.queue_time)
-
-        logging.basicConfig(level=logging.DEBUG)
-
-        p = SyncProto(packet_port, baudrate)
-        mx = (100e3, 5e6)
-
-        p.config(itr_delay=4,
-                 axes=[AxisConfig(0, 5, 2, 4, *mx),  # Y Axis
-                       AxisConfig(1, 6, 7, 4, *mx),  # Z Axis
-                       AxisConfig(2, 8, 9, 10, *mx),  # B Axis
-                       AxisConfig(3, 11, 12, 13, *mx)])  # ,
-
-
-        for i in range(5):
-            for x in range(1000,150000,5000):
-                p.move([AxisSegment(0, x) for _ in range(4)])
-                p.move([AxisSegment(0, -x) for _ in range(4)])
-                p.read_empty()
-
-        p.info()
 
 
 

@@ -1,4 +1,4 @@
-from messages import AxisConfig
+from trajectory.messages import AxisConfig
 
 
 def rpm_to_usps(rpm, usteps, steps_per_rotation=200):

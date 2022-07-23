@@ -11,27 +11,22 @@ IntervalTimer clearLedTimer; // Timer for clearing the LED
 
 PacketSerial ps;
 
-long last_time = millis();
-
-volatile uint8_t limit_state = 0;
-volatile int limit_pos = 0;
 volatile int limits_changed = 0; // Number of limits that have changed since last limit interrupt
-
-int auto_print = false; // Automatically print limits and positions.
 
 typedef void (*voidfp)();
 void limit_change(int n);
 
 enum message_code  : uint8_t{
-  limit_code = 1,
-  zero_code = 2,
-  seg_code = 3
+  MC_LIMIT = 1,
+  MC_ZERO = 2,
+  MC_SEGDONE = 3,
+  MC_POLL = 4,
 };
 
 typedef struct {
   uint8_t limit_states[6] = {0};
   enum message_code code;
-  uint8_t pad1;
+  int8_t axis_index=0; // 0 means none; valid indexes are stored with +1, so index 0 is 1
   int32_t positions[6] = {0};
 } EncoderReport;
 
@@ -43,8 +38,6 @@ enum limit {
   HH = 0b11,
   LL = 0b00
 };
-
-
 
 class LimitEncoder {
 
@@ -66,6 +59,7 @@ class LimitEncoder {
     uint8_t limit_state;
 
     int dir;
+
     
     Encoder encoder;
 
@@ -164,7 +158,6 @@ class LimitEncoder {
     long getLastLimitPos() {
       return last_limit;
     }
-
 };
 
 LimitEncoder encoders[] = {
@@ -180,10 +173,11 @@ LimitEncoder encoders[] = {
 int n_encoders = sizeof encoders / sizeof encoders[0];
 
 
-void updateReport(enum message_code code){
+void updateReport(enum message_code code, uint8_t axis_idx){
   for ( int i = 0; i < n_encoders; i++) {
     LimitEncoder& enc = encoders[i];
     encoder_report.code = code;
+    encoder_report.axis_index = axis_idx;
     encoder_report.limit_states[i] = enc.getLimitState() | (enc.getDirection() <<2 ) ;
     encoder_report.positions[i] = enc.getPosition();
   }
@@ -200,8 +194,9 @@ void limit_change(int n) {
     } else {
       encoders[i].limitUnChanged();
     }
-    
   }
+
+  updateReport(MC_LIMIT, n+1); // +1 b/c 0 means no limit, so actual limits are 1 to 6
   
 }
 
@@ -241,8 +236,7 @@ void segmentCompleted(){
   for ( int i = 0; i < n_encoders; i++) {
     encoders[i].limitUnChanged();
   }
-  updateReport(seg_code);
-
+  updateReport(MC_SEGDONE,0);
 
 }
 
@@ -250,8 +244,6 @@ void setup() {
 
   ps.begin(115200);
 
-
-  limit_state = (digitalRead(LIMIT_PIN) << 1);
 
   pinMode(LIMIT_INTR_PIN, OUTPUT);
   pinMode(LED_BUILTIN, OUTPUT);
@@ -266,19 +258,45 @@ void setup() {
   }
 }
 
+void loopTick()    {
+    static unsigned long last = millis();
+    static bool ledToggle = true;
+    
+    // Fast tick for running, slow for idle
+    if( millis() - last > 1000  ){
+      digitalWrite(LED_BUILTIN, (ledToggle = !ledToggle));
+      last = millis();
+    }
+
+}
+
 void loop() {
+
+  loopTick();
 
   if (Serial.available() > 0) {
     // read the incoming byte:
     char cmd = Serial.read();
-
+    
     switch (cmd) {
-      case 'z': // Clear
+      case 'z': // Zero
         for ( int i = 0; i < n_encoders; i++) {
           encoders[i].setPosition(0);
           encoders[i].limitUnChanged();
         }
-        updateReport(zero_code);
+        updateReport(MC_ZERO,0);
+        break;
+      case 'p': // Poll the encoders
+        for ( int i = 0; i < n_encoders; i++) {
+          encoders[i].limitUnChanged();
+        }
+        updateReport(MC_POLL,0);
+        break;
+      case 's': // Set Values
+        for (int i = 0 ; i <  n_encoders ; i++){
+          encoders[i].setPosition(Serial.parseInt());
+          encoders[i].limitUnChanged();
+        }
         break;
     }
   }
@@ -288,12 +306,6 @@ void loop() {
   }
 
 
-  if (limits_changed != 0) {
-    limits_changed = 0;
-    updateReport(limit_code);
-    
 
-
-  }
 
 }
