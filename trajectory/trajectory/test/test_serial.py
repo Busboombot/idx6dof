@@ -431,13 +431,44 @@ class TestSerial(unittest.TestCase):
     def test_home(self):
         self.home();
 
-    def test_encoder_poll(self):
+    def home_poll(self, p):
 
-        p = self.init(1000)
+        lc = p.pollEncoders().encoders[0].limit_code
+        if  lc == LimitCode.LL:
+            direction = -1
+        elif lc == LimitCode.HH:
+            direction = +1
+        else:
+            assert(False)
 
-        print(p.pollEncoders().encoders[0])
+        for i in range(0, int(p.mspr/.6), int(p.mspr / 8)):
+            p.amove((direction*i,))
+            p.runout()
+            ll = p.axis_state[0].hl_limit
+            if (ll):
+                break
 
+        p.amove((ll + int(p.mspr / 4),))
+        p.runout()
 
+    def test_home_poll(self):
+
+        p = self.init(1500)
+
+        p.zero()
+        p.reset()
+        p.run()
+
+        def rand_move():
+            from random import randint
+            return randint(-p.mspr, p.mspr)
+
+        for i in range(10):
+            p.rmove((rand_move(),))
+
+            self.home_poll(p)
+
+            sleep(.3)
 
 
 
