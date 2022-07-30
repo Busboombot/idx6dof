@@ -30,7 +30,10 @@ class ProtocolException(Exception):
 
 
 def _message_callback(proto, m):
-    pl = m.payload.decode('utf8')
+    try:
+        pl = m.payload.decode('utf8')
+    except:
+        pl = m.payload
 
     if m.code == CommandCode.DEBUG:
         logger.debug(pl)
@@ -64,6 +67,8 @@ class SyncProto(object):
 
         if encoder_port is not None:
             self.enc_ser = serial.Serial(encoder_port, baudrate=encoder_baud, timeout=timeout)
+        else:
+            self.enc_ser = None
 
         if message_callback is None:
             message_callback = _message_callback
@@ -86,7 +91,8 @@ class SyncProto(object):
         self.sel = selectors.DefaultSelector()
 
         self.sel.register(self.step_ser, selectors.EVENT_READ, self.read_stepper_message)
-        self.sel.register(self.enc_ser, selectors.EVENT_READ, self.read_encoder_message)
+        if self.enc_ser:
+            self.sel.register(self.enc_ser, selectors.EVENT_READ, self.read_encoder_message)
 
         self.queue = deque(maxlen=100)
 
@@ -115,11 +121,15 @@ class SyncProto(object):
     def read_stepper_message(self, ser):
         data = ser.read_until(TERMINATOR)
 
-        if data:
-            m = CommandHeader.decode(data[:-1])
-            self.handle_stepper_message(m)
-            return m
-        else:
+        try:
+            if data:
+                m = CommandHeader.decode(data[:-1])
+                self.handle_stepper_message(m)
+                return m
+            else:
+                return None
+        except Exception as e:
+            print("ERROR", e)
             return None
 
     def handle_stepper_message(self, m):
@@ -186,8 +196,7 @@ class SyncProto(object):
         for key, mask in events:
             f, ser = key.data, key.fileobj
             m = f(ser)
-
-            if not m.is_ack:
+            if m and not m.is_ack:
                 self.queue.append(m)
 
         return len(events)
@@ -277,6 +286,7 @@ class SyncProto(object):
             self.send(ac)
 
     def _move(self, code: int, x: List[int], t=0):
+
         m = MoveCommand(code, x, t=t)
 
         m.done = False
@@ -319,7 +329,8 @@ class SyncProto(object):
     def zero(self):
         self.runout()
         self._reset_states()
-        self.enc_ser.write(b'z')
+        if self.enc_ser:
+            self.enc_ser.write(b'z')
         self.send_command(CommandCode.ZERO)
         self.runout()
 
@@ -329,5 +340,3 @@ class SyncProto(object):
         for m in self.iupdate(1):
             if m.name == 'POLL':
                 return m
-
-

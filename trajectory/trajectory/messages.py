@@ -180,6 +180,7 @@ class MoveCommand(object):
         self.x = [int(e) for e in x] + [0]*(6-len(x))
         self.t = int(round(t * TIMEBASE)) # Convert to integer microseconds
 
+
         if code not in (CommandCode.AMOVE, CommandCode.RMOVE,
                         CommandCode.JMOVE):
             raise BadMoveCodeError("Bad Code {}".format(code))

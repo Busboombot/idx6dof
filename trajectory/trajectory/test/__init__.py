@@ -13,7 +13,6 @@ def make_axes(rpm, accel, usteps=1, steps_per_rotation=200):
     "rpm is target RPM. acell is, I think, the time in sec to reach full velocity. "
     s = rpm_to_usps(rpm, usteps)
 
-
     mx = (s, s/accel)  # Max Velocity , Max Acceleration
 
     _axes = {
@@ -27,6 +26,7 @@ def make_axes(rpm, accel, usteps=1, steps_per_rotation=200):
 
     return {
     "axes1": [AxisConfig(0, *_axes['a'])],
+    "axesb": [AxisConfig(0, *_axes['b'])],
     "axesz": [AxisConfig(0, *_axes['z'])],
     "axes2": [AxisConfig(0, *_axes['a']), AxisConfig(1, *_axes['z'])],
     "axes3": [AxisConfig(0, *_axes['a']), AxisConfig(1, *_axes['z']), AxisConfig(2, *_axes['b'])],
