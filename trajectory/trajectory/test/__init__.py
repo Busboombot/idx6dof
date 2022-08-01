@@ -17,7 +17,7 @@ def make_axes(rpm, accel, usteps=1, steps_per_rotation=200):
 
     _axes = {
     'x': (18, 19, 20, *mx),  # X
-    'y': (21, 21, 23, *mx),  # Y
+    'y': (21, 22, 23, *mx),  # Y
     'z': (5, 6, 7, *mx),  # Z
     'a': (2, 3, 4, *mx),  # A
     'b': (8, 9, 10, *mx),  # B

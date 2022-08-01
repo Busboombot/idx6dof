@@ -361,7 +361,12 @@ class EncoderReport:
         encoders = []
 
         try:
-            v = struct.unpack(encoder_msg_fmt, cobs.decode(data))
+            try:
+                v = struct.unpack(encoder_msg_fmt, cobs.decode(data))
+            except struct.error as e:
+                print(e)
+                print('Got data len=', len(data));
+                raise
 
             cause = CauseCode(int.from_bytes(v[6], 'big'))
             axis = int.from_bytes(v[7], 'big')

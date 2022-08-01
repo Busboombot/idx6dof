@@ -9,14 +9,14 @@ from test import make_axes
 from trajectory.messages import *
 from trajectory.proto import SyncProto
 
-
 from random import randint
 
-#packet_port = '/dev/tty.usbmodem6421381' # Test
-packet_port = '/dev/cu.usbmodem6421391' # Production
-encoder_port = '/dev/cu.usbmodem6387471'
+# packet_port = '/dev/tty.usbmodem6421381' # Test
+packet_port = '/dev/cu.usbmodem6421391'  # Production
+# encoder_port = '/dev/cu.usbmodem6387471'
+encoder_port = '/dev/cu.usbmodem6387461'  # Production
 
-baudrate = 115200 #20_000_000
+baudrate = 115200  # 20_000_000
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -36,16 +36,16 @@ class TestSerial(unittest.TestCase):
     def tearDown(self) -> None:
         pass
 
-    def init(self, v=500, axes_name='axes1', a=.1, use_encoder=True):
-        d = make_axes(v, a, usteps=16, steps_per_rotation=200)
+    def init(self, v=800, axes_name='axes1',  usteps=16, a=.1, enable_active = True, use_encoder=True):
+        d = make_axes(v, a, usteps=usteps, steps_per_rotation=200)
 
         p = SyncProto(packet_port, encoder_port if use_encoder else None)
         p.encoder_multipliers[0] = 1 + (1 / 3)
 
-
-        p.config(4, False, False, False, axes=d[axes_name]);
+        p.config(4, enable_active, False, False, axes=d[axes_name]);
 
         p.mspr = d['mspr']
+        p.x_1sec = d['x_1sec']
 
         return p
 
@@ -56,7 +56,7 @@ class TestSerial(unittest.TestCase):
 
     def test_read_message(self):
 
-        p = SyncProto(packet_port,  None)
+        p = SyncProto(packet_port, None)
 
         while True:
             p.update()
@@ -96,28 +96,32 @@ class TestSerial(unittest.TestCase):
         sleep(5)
         p.stop()
 
-
     def test_simple_r_move(self):
 
         def cb(p, m):
             if m.name != 'MESSAGE':
-                print( m)
+                print(m)
 
-        p = self.init(1000, 'axes1', a=0.1, use_encoder = False)
+        p = self.init(1500, 'axes6', a=0.2, usteps=10, use_encoder=False)
         r = p.mspr
-
         p.stop()
 
-        p.rmove((10*r,))
-        p.rmove((-10*r,))
-        p.rmove((10 * r,))
+
+        s = p.x_1sec/2
+
+        p.rmove(( 1*s,)*6)
+        p.rmove((-2*s,)*6)
+        p.rmove(( 1*s,)*6)
+
         p.info()
         p.run()
         p.runout(cb, timeout=1)
+        p.stop()
 
-    def                                                  test_simple_r_1_move(self):
+    def test_simple_r_1_move(self):
         """A simple move with 1 axis"""
-        def cb(p,m):
+
+        def cb(p, m):
             print(m, p.queue_time)
 
         logging.basicConfig(level=logging.DEBUG)
@@ -133,19 +137,19 @@ class TestSerial(unittest.TestCase):
         for i in range(100):
             p.rmove((s,))
             p.rmove((-s,))
-            p.runout(cb, timeout = 1);
+            p.runout(cb, timeout=1);
 
         p.info()
         p.stop()
 
     def test_r_move_a1(self):
 
-        #import saleae, time
-        #s = saleae.Saleae()
-        #s.capture_start()
-        #time.sleep(.5)
+        # import saleae, time
+        # s = saleae.Saleae()
+        # s.capture_start()
+        # time.sleep(.5)
 
-        def cb(p,m): # Callback for messages from the sg
+        def cb(p, m):  # Callback for messages from the sg
             print(m)
 
         logging.basicConfig(level=logging.DEBUG)
@@ -154,7 +158,7 @@ class TestSerial(unittest.TestCase):
 
         p.config(4, True, False, False, axes=axes1);
 
-        s = 5*x_1sec
+        s = 5 * x_1sec
         for i in range(1):
             p.rmove((s,))
             p.rmove((-s,))
@@ -166,7 +170,7 @@ class TestSerial(unittest.TestCase):
 
     def test_r_move_a2_reversing(self):
 
-        def cb(p,m):
+        def cb(p, m):
             print(m, p.queue_time)
 
         logging.basicConfig(level=logging.DEBUG)
@@ -178,11 +182,10 @@ class TestSerial(unittest.TestCase):
         s = x_1sec
 
         for i in range(3):
-
-            p.rmove((s, -s/2))
-            p.rmove((-s, s/2))
-            p.rmove((s/3, -s))
-            p.rmove((-s/3, s))
+            p.rmove((s, -s / 2))
+            p.rmove((-s, s / 2))
+            p.rmove((s / 3, -s))
+            p.rmove((-s / 3, s))
 
         p.info()
         t1 = time()
@@ -195,8 +198,7 @@ class TestSerial(unittest.TestCase):
 
     def test_r_move_a3(self):
 
-
-        def cb(p,m):
+        def cb(p, m):
             print(m)
 
         logging.basicConfig(level=logging.DEBUG)
@@ -208,16 +210,14 @@ class TestSerial(unittest.TestCase):
 
         p.config(4, True, False, False, axes=d['axes3']);
 
-        p.rmove((   1*s,   .5*s,   1*s))
-        p.rmove((   -1*s,  .25*s, -1*s))
-        p.rmove((   1*s,   1*s,   1*s))
-        p.rmove((   -1*s,  .5*s,  -1*s))
+        p.rmove((1 * s, .5 * s, 1 * s))
+        p.rmove((-1 * s, .25 * s, -1 * s))
+        p.rmove((1 * s, 1 * s, 1 * s))
+        p.rmove((-1 * s, .5 * s, -1 * s))
         p.run()
         p.read_empty(cb);
 
         p.info()
-
-
 
     def test_simple_r_move_x(self):
 
@@ -255,34 +255,33 @@ class TestSerial(unittest.TestCase):
         p.runout(cb)
         p.info()
 
-
     def test_find_limit(self):
 
         def cb(p, m):
             print(m)
+
         p = self.init(800)
 
         p.zero()
         p.reset()
         p.run()
 
-        for i in range(0,p.mspr, int(p.mspr/8)):
+        for i in range(0, p.mspr, int(p.mspr / 8)):
             p.amove((i,))
             p.amove((-i,))
             p.runout()
             ll = p.axis_state[0].hl_limit
-            if(ll):
+            if (ll):
                 print("Found", ll)
                 break
 
-        p.amove((ll + p.mspr/4,))
+        p.amove((ll + p.mspr / 4,))
         p.runempty(cb)
-
 
     def test_reset(self):
 
         def cb(p, m):
-            if isinstance(m,list):
+            if isinstance(m, list):
                 print(m[0], p.axis_state[0])
 
         p = self.init(1000)
@@ -293,20 +292,19 @@ class TestSerial(unittest.TestCase):
 
         print(p.axis_state)
 
-
     def home_poll(self, p):
         """Poll the limit swtich, then advance in the direction of the HL limit"""
 
         lc = p.pollEncoders().encoders[0].limit_code
-        if  lc == LimitCode.LL:
+        if lc == LimitCode.LL:
             direction = -1
         elif lc == LimitCode.HH:
             direction = +1
         else:
-            assert(False)
+            assert (False)
 
-        for i in range(0, int(p.mspr/.6), int(p.mspr / 8)):
-            p.amove((direction*i,))
+        for i in range(0, int(p.mspr / .6), int(p.mspr / 8)):
+            p.amove((direction * i,))
             p.runout()
             ll = p.axis_state[0].hl_limit
             if (ll):
@@ -315,7 +313,7 @@ class TestSerial(unittest.TestCase):
         p.amove((ll + int(p.mspr / 4),))
         p.runout()
 
-    def home_poll_hall(self, p, step_size=1, max_range = 100):
+    def home_poll_hall(self, p, step_size=1, max_range=100):
         """Poll the limit swtich, then advance in the direction of the HL limit,
         but don't rely on the encoders"""
 
@@ -324,18 +322,18 @@ class TestSerial(unittest.TestCase):
         p.runout(timeout=.5)
 
         lc = p.pollEncoders().encoders[0].limit_code
-        if  lc == LimitCode.LL:
+        if lc == LimitCode.LL:
             direction = -1
             other = LimitCode.HH
         elif lc == LimitCode.HH:
             direction = +1
             other = LimitCode.LL
         else:
-            assert(False)
+            assert (False)
 
         for i in range(0, int(max_range), int(step_size)):
 
-            p.rmove((direction*i,))
+            p.rmove((direction * i,))
             p.runout(timeout=.05)
 
             this_lc = p.pollEncoders().encoders[0].limit_code
@@ -343,10 +341,7 @@ class TestSerial(unittest.TestCase):
             if this_lc == other:
                 break
 
-
-
         p.runout()
-
 
     def test_home_poll_hall(self):
 
@@ -358,24 +353,22 @@ class TestSerial(unittest.TestCase):
 
         def rand_move():
             from random import randint
-            return randint(-p.mspr/2, p.mspr/2)
+            return randint(-p.mspr / 2, p.mspr / 2)
 
         for i in range(10):
             p.rmove((rand_move(),))
             p.runout()
 
-            self.home_poll_hall(p, p.mspr/32, p.mspr/1.5 )
-            self.home_poll_hall(p, 1, p.mspr/16)
+            self.home_poll_hall(p, p.mspr / 32, p.mspr / 1.5)
+            self.home_poll_hall(p, 1, p.mspr / 16)
 
             lc = p.pollEncoders().encoders[0].limit_code
             if lc == LimitCode.LL:
-                self.home_poll_hall(p, 1, p.mspr/16)
+                self.home_poll_hall(p, 1, p.mspr / 16)
 
             print(p.axis_state[0], p.axis_state[0].epos % p.mspr)
 
         sleep(2)
-
-
 
     def home_seek(self, p):
 
@@ -401,10 +394,7 @@ class TestSerial(unittest.TestCase):
         p.zero()
         p.reset()
 
-
         self.home_seek();
-
-
 
     def test_home_poll(self):
 
@@ -424,9 +414,6 @@ class TestSerial(unittest.TestCase):
             self.home_poll(p)
 
             sleep(.3)
-
-
-
 
 
 if __name__ == '__main__':

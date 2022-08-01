@@ -24,10 +24,10 @@ enum message_code  : uint8_t{
 };
 
 typedef struct {
-  uint8_t limit_states[6] = {0};
-  enum message_code code;
-  int8_t axis_index=0; // 0 means none; valid indexes are stored with +1, so index 0 is 1
-  int32_t positions[6] = {0};
+  uint8_t limit_states[6] = {0}; // 6 
+  enum message_code code; // 1
+  int8_t axis_index=0; // 0 means none; valid indexes are stored with +1, so index 0 is 1 // 1
+  int32_t positions[6] = {0}; // 24
 } EncoderReport;
 
 EncoderReport encoder_report;
@@ -161,7 +161,8 @@ class LimitEncoder {
 };
 
 LimitEncoder encoders[] = {
-  LimitEncoder(0, 2, 3, 4, 5),
+  //  A B I E
+  LimitEncoder(0, 30, 32, 31, 29), // Bottom Left
   LimitEncoder(1, 6, 7, 8, 9),
   LimitEncoder(2, 10, 11, 12, 24),
   LimitEncoder(3, 13, 14, 15, 16),
@@ -262,7 +263,6 @@ void loopTick()    {
     static unsigned long last = millis();
     static bool ledToggle = true;
     
-    // Fast tick for running, slow for idle
     if( millis() - last > 1000  ){
       digitalWrite(LED_BUILTIN, (ledToggle = !ledToggle));
       last = millis();
