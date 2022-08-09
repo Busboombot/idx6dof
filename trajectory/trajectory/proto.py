@@ -4,6 +4,7 @@ import time
 from time import time
 from collections import deque
 import serial
+from typing import Union, Tuple, List, Any, Dict
 
 from .messages import *
 
@@ -164,9 +165,13 @@ class SyncProto(object):
         data = ser.read_until(TERMINATOR)
 
         if data:
-            m = EncoderReport.decode(data[:-1])
-            self.handle_encoder_message(m)
-            return m
+            try:
+                m = EncoderReport.decode(data[:-1])
+                self.handle_encoder_message(m)
+                return m
+            except Exception as e:
+                print(e, data)
+                return None
         else:
             return None
 
@@ -201,13 +206,13 @@ class SyncProto(object):
 
         return len(events)
 
-    def iupdate(self, timeout = False):
+    def iupdate(self, timeout=False):
         t = time()
         while True:
             self.update()
             yield from self
 
-            if timeout is not False and time() > t+timeout:
+            if timeout is not False and time() > t + timeout:
                 break
 
     def __iter__(self):
@@ -238,7 +243,6 @@ class SyncProto(object):
             for m in self:
                 if cb:
                     cb(self, m)
-
 
     @property
     def queue_length(self):
@@ -272,20 +276,30 @@ class SyncProto(object):
     def send_command(self, c):
         self.send(CommandHeader(seq=self.seq, code=c))
 
-    def config(self, itr_delay: int = 4, enable_active=True,
-               debug_print: bool = False, debug_tick: bool = False, segment_complete_pin=12,
+    def config(self, itr_delay: int = 4, segment_complete_pin=0, limit_hit_pin=0,
+               debug_print: bool = False, debug_tick: bool = False,
                axes: List[AxisConfig] = []):
 
         # Send the top level config, to set the number of
         # axes
-        self.send(ConfigCommand(len(axes), itr_delay, segment_complete_pin,
-                                enable_active, debug_print, debug_tick))
+        self.send(ConfigCommand(len(axes), itr_delay, segment_complete_pin, limit_hit_pin,
+                                debug_print, debug_tick))
+
+        self.axes = axes
 
         # Then send the config for each axis.
         for ac in axes:
             self.send(ac)
 
-    def _move(self, code: int, x: List[int], t=0):
+    def _move(self, code: int, x: Union[List[Any], Tuple[Any], Dict], t=0):
+
+        # Convert a dict-based move into an array move.
+        if isinstance(x, dict):
+            x_ = [0] * len(self.axes)
+            for k,v in x.items():
+                assert isinstance(k, int)
+                x_[k] = v
+            x = x_
 
         m = MoveCommand(code, x, t=t)
 
@@ -296,15 +310,19 @@ class SyncProto(object):
         self.send(m)
         self.empty = False;
 
-    def amove(self, x: List[int]):
+    def amove(self, x: Union[List[Any], Tuple[Any], Dict]):
         """Absolute position move"""
         self._move(CommandCode.AMOVE, x, t=0)
 
-    def rmove(self, x: List[int]):
+    def rmove(self, x: Union[List[Any], Tuple[Any], Dict]):
         "Relative position move"
         self._move(CommandCode.RMOVE, x, t=0)
 
-    def jog(self, t: float, x: List[int]):
+    def hmove(self, x: Union[List[Any], Tuple[Any], Dict]):
+        "A homing move, which will stop when it gets to a limit. "
+        self._move(CommandCode.HMOVE, x, t=0)
+
+    def jog(self, t: float, x: Union[List[Any], Tuple[Any], Dict]):
         """Jog move. A jog move replaces the last move on the (step generator side)
         planner, then becomes a regular relative move. """
         self._move(CommandCode.JMOVE, x, t=t)

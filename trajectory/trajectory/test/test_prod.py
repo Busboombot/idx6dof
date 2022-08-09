@@ -1,70 +1,202 @@
 import logging
 import unittest
+from time import sleep
 
+from test import make_axes
 from trajectory.messages import *
 from trajectory.proto import SyncProto
-from trajectory.segments import Joint, SegmentList
+from . import TestStepper
 
-# from trajectory.proto import PacketProto
-if (False):
-    # FTDI serial
-    packet_port = '/dev/cu.usbserial-AO0099HV'
-    baudrate = 3000000
-else:
-    # Builtin USB
-    packet_port = '/dev/cu.usbmodem64213901'
-    #packet_port = '/dev/cu.usbmodem64213801'
-    baudrate = 3000000 #20_000_000
+packet_port = '/dev/cu.usbmodem64213801'  # Production
+encoder_port = '/dev/cu.usbmodem63874601'  # Production
+
+baudrate = 115200  # 20_000_000
+
+logging.basicConfig(level=logging.DEBUG)
 
 
-def make_sl(moves, a_max=300_000):
-    sl = SegmentList([Joint(10000, a_max), Joint(10000, a_max)])
+# Axis configurations for the robot
+# Tuples are: step pin, dir pin, enable pin, max_v, max_a
 
-    for move in moves:
-        sl.add_distance_segment(move)
+class TestSerial(TestStepper):
 
-    return sl
+    def test_read_message(self):
 
-class TestBasic(unittest.TestCase):
+        p = SyncProto(packet_port, None)
 
-    def test_basic(self):
-        #import saleae, time
-        #s = saleae.Saleae()
-        #s.capture_start()
-        #time.sleep(.5)
+        while True:
+            p.update()
+            for m in p:
+                if cb:
+                    cb(p, m)
 
-        def cb(p,m):
-            print(m,p.current_state.positions)
+    def test_config(self):
+        """Test changing the configuration"""
+
+        p = SyncProto(packet_port, None)
+
+        d = make_axes(500, .1, usteps=16, steps_per_rotation=200)
+        p.config(4, 18, 32, False, False, axes=d['axes1']);
+        p.info()
+
+        d = make_axes(1000, .2, usteps=16, steps_per_rotation=200,
+                      output_mode=OutMode.OUTPUT_OPENDRAIN, highval=OutVal.LOW)
+        p.config(4, 7, 9, False, False, axes=d['axes1']);
+        p.info()
+
+    def test_info(self):
+
+        def cb(p, m):
+            print(m)
 
         logging.basicConfig(level=logging.DEBUG)
 
-        p = SyncProto(packet_port, baudrate)
+        p = self.init(packet_port, encoder_port, 100, 'axes1', a=0.1, use_encoder=False)
+        p.reset()
 
-        v_max = 5e3
-        a_max = 3e6
+        p.run()
+        sleep(5)
+        p.stop()
+        p.rmove((1000,))
+        sleep(5)
+        p.run()
+        sleep(5)
+        p.stop()
 
-        d = v_max / 3
+    def test_open_poll(self):
+        def cb(p, m):
+            print(m)
 
-        axes=[
-            AxisConfig(0, 21,21,23, v_max, a_max),    # X
-            AxisConfig(1, 18,19,20, v_max, a_max), # Y
-            AxisConfig(2, 15,16,17, v_max, a_max), # Z
-            AxisConfig(3, 5,6,7, v_max, a_max), # C
-            AxisConfig(4, 8,9,10, v_max, a_max), # A
-            AxisConfig(5, 2,3,4, v_max, a_max)   , # B
-        ]
+        p = self.init(600, 'axes6', a=.3, usteps=10, use_encoder=True,
+                      highvalue=OutVal.HIGH, outmode=OutMode.OUTPUT_OPENDRAIN, period=5)
 
-        p.config(axes=axes)
+        p.run()
+        p.stop()
 
-        move = [d,d,d,d,d,d]
+        while True:
+            p.runout(cb, timeout=1)
 
-        while(True):
-            p.amove(move)
-            p.amove([-e for e in move])
+    def test_run_axis(self):
 
-            p.read_empty(cb);
+        def cb(p, m):
+            if m.name != 'MESSAGE':
+                print(m)
+
+        p = self.init(800, 'axes6', a=.3, usteps=10, use_encoder=True,
+                      highvalue=OutVal.HIGH, outmode=OutMode.OUTPUT_OPENDRAIN,
+                      period=5)
+
+        r = p.mspr
+        p.reset()
+        p.run()
+
+        s = p.x_1sec * 1
+
+        axis = 3
+        try:
+            while True:
+                for i in range(10):
+                    p.rmove({axis: s})
+                    p.rmove({axis: -s})
+                    p.runout(cb)
+        except KeyboardInterrupt:
+            p.runout()
+
+        p.reset()
+
+    def test_simple_fix(self):
+
+        def cb(p, m):
+            if m.name != 'MESSAGE':
+                print(m)
+
+        p = self.init(packet_port, encoder_port,
+                      300, 'axes6', a=1, usteps=10, use_encoder=False,
+                      outmode=OutMode.OUTPUT_OPENDRAIN, period=5
+                      )
+        p.reset()
+        p.run()
+
+        r = p.mspr
+        s = p.x_1sec
+
+        p.rmove({1: 5000})
+
+        p.runempty(cb, timeout=1)
 
         p.info()
+
+    # noinspection PyTypeChecker
+    def test_simple_r_move(self):
+
+        def cb(p, m):
+            if m.name != 'MESSAGE':
+                print(m)
+
+        p = self.init(300, 'axes6', a=.5, usteps=10, use_encoder=False,
+              outmode=OutMode.OUTPUT_OPENDRAIN, period=5
+              )
+        p.reset()
+        p.run()
+
+        r = p.mspr
+        s = p.x_1sec
+
+
+        x = 40000
+        p.rmove({0: x})
+        p.rmove({0: -2*x})
+        p.rmove({0: x})
+
+
+        if True:
+            p.rmove({1:-16000})
+            p.rmove({1: 16000})
+
+            p.rmove({2:16000})
+            p.rmove({2: -16000})
+            p.rmove({2: -16000})
+            p.rmove({2: 16000})
+
+            p.rmove({3:32000})
+            p.rmove({3:-32000})
+            p.rmove({3: -32000})
+            p.rmove({3: 32000})
+
+            p.rmove({4: -10000})
+            p.rmove({4: 10000})
+
+            #p.rmove({5: 32000})
+            #p.rmove({5: -32000})
+
+        p.runout(cb, timeout=1)
+
+        p.info()
+
+    def test_move_one_axis(self):
+
+        def cb(p, m):
+            if m.name != 'MESSAGE':
+                print(m)
+
+        p = self.init(packet_port, encoder_port, 1000, 'axes6', a=.5, usteps=10, use_encoder=True,
+                      outmode=OutMode.OUTPUT_OPENDRAIN, period=5
+                      )
+        p.reset()
+        p.stop()
+
+        r = p.mspr
+        s = p.x_1sec
+
+        x = 50000
+        axis = 0
+        p.rmove({axis: x})
+        p.rmove({axis: -2*x})
+        p.rmove({axis: x})
+        p.info()
+        p.run()
+        p.runempty(cb, timeout=1)
+
 
 
 if __name__ == '__main__':

@@ -11,10 +11,10 @@ from trajectory.proto import SyncProto
 
 from random import randint
 
-# packet_port = '/dev/tty.usbmodem6421381' # Test
-packet_port = '/dev/cu.usbmodem6421391'  # Production
+#packet_port = '/dev/cu.usbmodem64213801'  # Production
+packet_port = '/dev/cu.usbmodem64213901' # Test
 # encoder_port = '/dev/cu.usbmodem6387471'
-encoder_port = '/dev/cu.usbmodem6387461'  # Production
+encoder_port = '/dev/cu.usbmodem63874601'  # Production
 
 baudrate = 115200  # 20_000_000
 
@@ -23,7 +23,6 @@ logging.basicConfig(level=logging.DEBUG)
 
 # Axis configurations for the robot
 # Tuples are: step pin, dir pin, enable pin, max_v, max_a
-
 
 class TestSerial(unittest.TestCase):
     # Determines wether the steppers are enables with an output value of high or low
@@ -36,13 +35,18 @@ class TestSerial(unittest.TestCase):
     def tearDown(self) -> None:
         pass
 
-    def init(self, v=800, axes_name='axes1',  usteps=16, a=.1, enable_active = True, use_encoder=True):
-        d = make_axes(v, a, usteps=usteps, steps_per_rotation=200)
+    def init(self, v=800, axes_name='axes1', usteps=16, a=.1,
+             highvalue=OutVal.HIGH, outmode=OutMode.OUTPUT_OPENDRAIN,
+             segment_pin=27, limit_pint=29, period=4,
+             use_encoder=True):
+
+        d = make_axes(v, a, usteps=usteps, steps_per_rotation=200,
+                      highval=highvalue, output_mode=outmode)
 
         p = SyncProto(packet_port, encoder_port if use_encoder else None)
         p.encoder_multipliers[0] = 1 + (1 / 3)
 
-        p.config(4, enable_active, False, False, axes=d[axes_name]);
+        p.config(period, segment_pin, limit_pint, False, False, axes=d[axes_name]);
 
         p.mspr = d['mspr']
         p.x_1sec = d['x_1sec']
@@ -68,13 +72,14 @@ class TestSerial(unittest.TestCase):
         """Test changing the configuration"""
 
         p = SyncProto(packet_port, None)
-        p.info()
 
         d = make_axes(500, .1, usteps=16, steps_per_rotation=200)
-        p.config(4, False, False, False, axes=d['axes1']);
+        p.config(4, 18, 32, False, False, axes=d['axes1']);
         p.info()
-        d = make_axes(1000, .2, usteps=16, steps_per_rotation=200)
-        p.config(4, False, False, False, axes=d['axes3']);
+
+        d = make_axes(1000, .2, usteps=16, steps_per_rotation=200,
+                      output_mode=OutMode.OUTPUT_OPENDRAIN, highval=OutVal.LOW)
+        p.config(4, 7, 9, False, False, axes=d['axes1']);
         p.info()
 
     def test_info(self):
@@ -96,27 +101,109 @@ class TestSerial(unittest.TestCase):
         sleep(5)
         p.stop()
 
+    def test_open_poll(self):
+        def cb(p, m):
+            print(m)
+
+        p = self.init(600, 'axes6', a=.3, usteps=10, use_encoder=True,
+                      highvalue=OutVal.HIGH, outmode=OutMode.OUTPUT_OPENDRAIN, period=5)
+
+        p.run()
+        p.stop()
+
+        while True:
+            p.runout(cb, timeout=1)
+
+    def test_run_axis(self):
+
+        def cb(p, m):
+            if m.name != 'MESSAGE':
+                print(m)
+
+        p = self.init(800, 'axes6', a=.3, usteps=10, use_encoder=True,
+                      highvalue=OutVal.HIGH, outmode=OutMode.OUTPUT_OPENDRAIN,
+                      period=5)
+
+        r = p.mspr
+        p.reset()
+        p.run()
+
+        s = p.x_1sec * 1
+
+        axis = 3
+        try:
+            while True:
+                for i in range(10):
+                    p.rmove({axis: s})
+                    p.rmove({axis: -s})
+                    p.runout(cb)
+        except KeyboardInterrupt:
+            p.runout()
+
+        p.reset()
+
+
+    # noinspection PyTypeChecker
     def test_simple_r_move(self):
 
         def cb(p, m):
             if m.name != 'MESSAGE':
                 print(m)
 
-        p = self.init(1500, 'axes6', a=0.2, usteps=10, use_encoder=False)
-        r = p.mspr
-        p.stop()
-
-
-        s = p.x_1sec/2
-
-        p.rmove(( 1*s,)*6)
-        p.rmove((-2*s,)*6)
-        p.rmove(( 1*s,)*6)
-
-        p.info()
+        p = self.init(1000, 'axes6', a=.3, usteps=10, use_encoder=True,
+                      highvalue=(OutVal.HIGH, OutVal.HIGH, OutVal.LOW),
+                      segment_pin=27, limit_pint=29,
+                      outmode=OutMode.OUTPUT, period=5
+                      )
+        p.reset()
         p.run()
-        p.runout(cb, timeout=1)
-        p.stop()
+
+        r = p.mspr
+        s = p.x_1sec
+
+        # Random Move, forward or back 1/2 rodataion.
+        rr = randint(int(-r / 2.5), int(r / 2.5))
+        p.rmove((rr,) * 6)
+        p.runout()
+
+        def find_limit(p, encoder=0, direction_mod=1):
+
+            r = p.mspr
+
+            lc = p.pollEncoders().encoders[encoder].limit_code
+            if lc == LimitCode.LL:
+                direction = -1 * direction_mod
+            elif lc == LimitCode.HH:
+                direction = +1 * direction_mod
+            else:
+                assert False
+
+            # Step toward the LH limit
+            for i in range(200):
+                p.hmove((direction * r / 200,) * 6)
+
+            p.runout()
+
+        find_limit(p, 0)
+
+        # Now we've found the limit, but to get an accurate
+        # reading, we always need to read it from the same side.
+
+        p.rmove((r / 20,) * 6)
+        p.runout()
+
+        lc = p.pollEncoders().encoders[0].limit_code
+
+        # Step back toward the LH limit
+        for i in range(40):
+            p.hmove((-1 * r / 400,) * 6)
+        p.runout()
+
+        print("!!!", lc)
+
+        print(p.pollEncoders().encoders[0])
+        p.zero()
+        p.runout()
 
     def test_simple_r_1_move(self):
         """A simple move with 1 axis"""
@@ -301,7 +388,7 @@ class TestSerial(unittest.TestCase):
         elif lc == LimitCode.HH:
             direction = +1
         else:
-            assert (False)
+            assert False
 
         for i in range(0, int(p.mspr / .6), int(p.mspr / 8)):
             p.amove((direction * i,))

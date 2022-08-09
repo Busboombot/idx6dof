@@ -7,7 +7,7 @@
   Released into the public domain.
 */
 
-#include "U8glib.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <SoftwareSerial.h>  
@@ -222,12 +222,13 @@ class Button {
 };
 
 
-#define NBUTTONS 5
-#define RESET_BUTTON_IDX 0
+#define NBUTTONS 6
+#define RESET_BUTTON_IDX 0 // Front panel Reset/Error button
 #define KEY_BUTTON_IDX 1
-#define ESTOP_BUTTON_IDX 2
-#define ESTOPEN_BUTTON_IDX 3
-#define POWER_BUTTON_IDX 4
+#define ESTOP1_BUTTON_IDX 2
+#define ESTOP2_BUTTON_IDX 3
+#define ESTOPEN_BUTTON_IDX 4
+#define POWER_BUTTON_IDX 5  // Blue power button. 
 
 class StateMachine {
 
@@ -257,7 +258,8 @@ class StateMachine {
     bool checkKeyOn() { return buttons[KEY_BUTTON_IDX].state()==true; }
     bool checkKeyOff(){ return buttons[KEY_BUTTON_IDX].state()==false; }
     bool checkReset() { return buttons[RESET_BUTTON_IDX].state()==true; }
-    bool checkEStop() { return buttons[ESTOP_BUTTON_IDX].state()==false &&
+    bool checkEStop() { return buttons[ESTOP1_BUTTON_IDX].state()==false &&
+                               buttons[ESTOP2_BUTTON_IDX].state()==false &&
                                buttons[ESTOPEN_BUTTON_IDX].state()!=true; }
     bool checkEStopEn() { return buttons[ESTOPEN_BUTTON_IDX].state()==true; }
     bool checkPower() { return buttons[POWER_BUTTON_IDX].state()==true; }
@@ -400,8 +402,9 @@ class StateMachine {
   public:
 
 
-    StateMachine(int ledPin, int powerPin, int estopEnablePin, int estopPin, int keyPin, int resetPin, 
+    StateMachine(int ledPin, int powerPin, int estopEnablePin, int estopPin1, int estopPin2, int keyPin, int resetPin, 
                  int highPowerPin, int lowPowerPin) : 
+                 
       led(ledPin),
       boardLed(13), 
       
@@ -410,7 +413,8 @@ class StateMachine {
         // of the _BUTTON_INDEX defines
         Button(F("reset"),resetPin, false),
         Button(F("key"),keyPin, true),
-        Button(F("estop"),estopPin, false),
+        Button(F("estop1"),estopPin1, false),
+        Button(F("estop2"),estopPin2, false),
         Button(F("estopEnable"),estopEnablePin, false),
         Button(F("power"),powerPin, false)}),
         
@@ -462,6 +466,7 @@ class StateMachine {
       else if (ns == F("highpower")) toFullPowerOnState();
       else if (ns == F("error")) toErrorState();
       else if (ns == F("reset")) toOnState();
+      
       else if (ns == F("?")) ; // Just query the state
       else return false;
 
@@ -529,21 +534,24 @@ class StateMachine {
 
 
 StateMachine sm(
-  3, // LED
-  8, // Power Switch
-  9, // EStop Enable
-  41, // EStop
-  54, // Keyed On/Off Switch
-  12, // Reset Switch
-  43, // High Power enable
-  45  // Low Power Enable
+  3, // LED  int ledPin, 
+  8, // Power Switch int powerPin, 
+  A1, // EStop Enable int estopEnablePin, 
+  41, // EStop 1 (Conroller) int estopPin1, 
+   9, // EStop 2 (Power) int estopPin1, 
+  54, // Keyed On/Off Switch int keyPin, ( Not used?
+  12, // Reset Switchint resetPin, 
+  43, // High Power enable  int highPowerPin, 
+  45  // Low Power Enable int lowPowerPin
   ) ;
+
+  
 
 #define COMMAND_BUF_LENGTH 40
 String command; // char command[COMMAND_BUF_LENGTH];
 String commandBuffers[] = {String(), String()};
 
-void printCommand(char *prefix, String str){
+void printCommand(const char *prefix, String str){
   Serial.print(prefix); Serial.println(str);
   Serial2.print(prefix); Serial2.println(str);
 }
