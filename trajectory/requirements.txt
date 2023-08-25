@@ -1,6 +1,0 @@
-pyserial
-threaded
-ansicolors
-numpy
-pandas
-cobs
